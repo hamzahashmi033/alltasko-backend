@@ -2,9 +2,6 @@ const Category = require("../models/Category")
 
 exports.saveCategory = async (req, res) => {
     try {
-        
-    
-        
         await Category.insertMany(req.body)
         res.status(200).json({message:"Success"})
     } catch (error) {
