@@ -35,19 +35,19 @@ const ServiceProviderSchema = new mongoose.Schema({
     reasonOfRejection: {
         type: String, default: null
     },
-    accountStatus: { type: String, enum: ["working", "on_hold"] },
+    accountStatus: { type: String, enum: ["working", "on_hold"], default: "working" },
     resaonOfHold: { type: String, default: null },
     onHold: { type: Boolean, default: false },
-    reviews: [ReviewSchema] 
+    reviews: [ReviewSchema]
 });
 
 
 ServiceProviderSchema.methods.generateAuthToken = function () {
-  return jwt.sign(
-    { _id: this._id, email: this.email, role: this.role }, 
-    process.env.JWT_SECRET, 
-    { expiresIn: "7d" } 
-  );
+    return jwt.sign(
+        { _id: this._id, email: this.email, role: this.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+    );
 };
 const ServiceProvider = mongoose.model("ServiceProvider", ServiceProviderSchema);
 module.exports = ServiceProvider;

@@ -447,3 +447,145 @@ exports.getReviews = async (req, res) => {
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };
+
+
+exports.updateServiceProviderProfile = async (req, res) => {
+    try {
+        const serviceProviderId = req.user._id; // Extract provider ID from token
+        const { name, about, contactInfo, postalCode } = req.body;
+
+        // Check if at least one field is provided for update
+        if (!name && !about && !contactInfo && !postalCode) {
+            return res.status(400).json({ message: "Provide at least one field to update." });
+        }
+
+        // Find and update the service provider
+        const updatedServiceProvider = await ServiceProvider.findByIdAndUpdate(
+            serviceProviderId,
+            { $set: { name, about, contactInfo, postalCode } },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedServiceProvider) {
+            return res.status(404).json({ message: "Service provider not found." });
+        }
+
+        res.status(200).json({ message: "Profile updated successfully.", provider: updatedServiceProvider });
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+exports.updateProviderStatus = async (req, res) => {
+    try {
+        const { providerId } = req.params; // ID of the service provider to update
+        const { status, reasonOfRejection } = req.body; // Boolean status and optional reason
+
+        // Validate status field
+        if (typeof status !== "boolean") {
+            return res.status(400).json({ message: "Status must be a boolean (true for approved, false for rejected)." });
+        }
+
+        // Determine the new status
+        const newStatus = status ? "approved" : "rejected";
+        const updateData = { status: newStatus };
+
+        // If rejected, store the reason
+        if (!status && reasonOfRejection) {
+            updateData.reasonOfRejection = reasonOfRejection;
+        }
+
+        // Find and update the service provider
+        const updatedProvider = await ServiceProvider.findByIdAndUpdate(
+            providerId,
+            { $set: updateData },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProvider) {
+            return res.status(404).json({ message: "Service provider not found." });
+        }
+
+        res.status(200).json({ message: `Service provider ${newStatus} successfully.`, provider: updatedProvider });
+
+    } catch (error) {
+        console.error("Update Provider Status Error:", error.message);
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+exports.updateProviderHoldStatus = async (req, res) => {
+    try {
+        const { providerId } = req.params; // Service provider ID
+        const { onHold, reasonOfHold } = req.body; // Boolean onHold and reason
+
+        // Validate the onHold field
+        if (typeof onHold !== "boolean") {
+            return res.status(400).json({ message: "onHold must be a boolean (true for on hold, false for active)." });
+        }
+
+        // Prepare the update object
+        const updateData = {
+            onHold,
+            accountStatus: onHold ? "on_hold" : "working",
+            resaonOfHold: onHold ? reasonOfHold || "No reason provided" : null, // Store reason if onHold is true
+        };
+
+        // Find and update the service provider
+        const updatedProvider = await ServiceProvider.findByIdAndUpdate(
+            providerId,
+            { $set: updateData },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProvider) {
+            return res.status(404).json({ message: "Service provider not found." });
+        }
+
+        res.status(200).json({
+            message: `Service provider is now ${onHold ? "on hold" : "active"}.`,
+            provider: updatedProvider
+        });
+
+    } catch (error) {
+        console.error("Update Provider Hold Status Error:", error.message);
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+exports.updateProviderPassword = async (req, res) => {
+    try {
+        const { oldPassword, newPassword } = req.body;
+        const providerId = req.user._id; // Extract provider ID from token
+
+        // Validate input
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({ message: "Both old and new passwords are required." });
+        }
+
+        // Find the provider
+        const provider = await ServiceProvider.findById(providerId);
+        if (!provider) {
+            return res.status(404).json({ message: "Service provider not found." });
+        }
+
+        // Check if old password is correct
+        const isMatch = await bcrypt.compare(oldPassword, provider.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: "Old password is incorrect." });
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        provider.password = await bcrypt.hash(newPassword, salt);
+
+        // Save the updated password
+        await provider.save();
+
+        res.status(200).json({ message: "Password updated successfully." });
+
+    } catch (error) {
+        console.error("Update Password Error:", error.message);
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
