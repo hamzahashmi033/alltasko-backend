@@ -4,24 +4,23 @@ const Category = require("../models/Category");
 const mongoose = require("mongoose");
 const { sendVerificationEmail } = require("../utils/sendVerificationEmail")
 const crypto = require("crypto")
+const axios = require("axios")
+const geolib = require("geolib")
 // Create Service Provider Account
 exports.createServiceProviderAccount = async (req, res) => {
     try {
         const { name, email, password, contactInfo, country, city, postalCode, selectedCategories, verificationCode } = req.body;
 
-        // Find the existing user (already saved when sending the verification code)
         const existingUser = await ServiceProvider.findOne({ email });
 
         if (!existingUser) {
             return res.status(400).json({ message: "Email not found!" });
         }
 
-        // Check if verification code is valid
         if (existingUser.verificationCode !== verificationCode) {
             return res.status(400).json({ error: "Invalid verification code" });
         }
 
-        // Ensure that an account is not already created
         if (existingUser.password) {
             return res.status(400).json({ message: "Account already exists with this email!" });
         }
@@ -29,15 +28,16 @@ exports.createServiceProviderAccount = async (req, res) => {
         let processedCategories = [];
 
         for (const selectedCategory of selectedCategories) {
-            const categoryDoc = await Category.findOne({ category: selectedCategory.category });
+            const { category, serviceRadius, postalCode, subcategories } = selectedCategory;
 
+            const categoryDoc = await Category.findOne({ category });
             if (!categoryDoc) {
-                return res.status(400).json({ message: `Invalid category: ${selectedCategory.category}` });
+                return res.status(400).json({ message: `Invalid category: ${category}` });
             }
 
             let processedSubcategories = [];
 
-            for (const selectedSubcategory of selectedCategory.subcategories) {
+            for (const selectedSubcategory of subcategories) {
                 const subcategoryDoc = categoryDoc.subcategories.find(
                     (sub) => sub.subcategory === selectedSubcategory.subcategory
                 );
@@ -63,15 +63,15 @@ exports.createServiceProviderAccount = async (req, res) => {
             }
 
             processedCategories.push({
-                category: selectedCategory.category,
+                category,
+                serviceRadius,
+                postalCode,
                 subcategories: processedSubcategories,
             });
         }
 
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Update the existing user instead of inserting a new one
         await ServiceProvider.updateOne(
             { email },
             {
@@ -88,11 +88,12 @@ exports.createServiceProviderAccount = async (req, res) => {
                 },
             }
         );
-        const token = existingUser.generateAuthToken()
-        res
-            .cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
+
+        const token = existingUser.generateAuthToken();
+        res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
             .status(200)
-            .json({  message: "Service provider registered successfully" , token });
+            .json({ message: "Service provider registered successfully", token });
+
     } catch (error) {
         console.error("Error in createServiceProviderAccount:", error);
         res.status(500).json({ message: "Server Error", error: error.message });
@@ -100,23 +101,23 @@ exports.createServiceProviderAccount = async (req, res) => {
 };
 
 exports.loginServiceProvider = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
-    const serviceProvider = await ServiceProvider.findOne({ email });
-    if (!serviceProvider) return res.status(404).json({ error: "User not found" });
+        const serviceProvider = await ServiceProvider.findOne({ email });
+        if (!serviceProvider) return res.status(404).json({ error: "User not found" });
 
-    const isMatch = await bcrypt.compare(password, serviceProvider.password);
-    if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
+        const isMatch = await bcrypt.compare(password, serviceProvider.password);
+        if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
-    const token = serviceProvider.generateAuthToken();
-    res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        const token = serviceProvider.generateAuthToken();
+        res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-    res.status(200).json({ message: "Login successful", token });
-  } catch (error) {
-    res.status(500).json({ error: "Error logging in", message: error.message });
-  }
+        res.status(200).json({ message: "Login successful", token });
+    } catch (error) {
+        res.status(500).json({ error: "Error logging in", message: error.message });
+    }
 };
 
 exports.sendVerificationCode = async (req, res) => {
@@ -270,8 +271,8 @@ exports.searchServiceProvidersByCity = async (req, res) => {
 exports.getServiceProviderByNameOrEmail = async (req, res) => {
     try {
         const { query } = req.query;
-    
-        
+
+
         if (!query) {
             return res.status(400).json({ message: "Name or Email is required for search" });
         }
@@ -589,3 +590,80 @@ exports.updateProviderPassword = async (req, res) => {
         res.status(500).json({ message: "Server Error", error: error.message });
     }
 };
+
+
+exports.getAvailableProviders = async (req, res) => {
+    try {
+        const { postalCode, subSubCategory } = req.query;
+
+        if (!postalCode || !subSubCategory) {
+            return res.status(400).json({ message: "Postal code and sub-subcategory are required" });
+        }
+
+        // Fetch client location from postal code (Dummy Data - Replace with DB query or API)
+        const clientLocation = await getCoordinatesFromPostalCode(postalCode);
+        if (!clientLocation) {
+            return res.status(400).json({ message: "Invalid client postal code" });
+        }
+
+        // Fetch all service providers who offer this subSubCategory
+        const providers = await ServiceProvider.find({
+            "selectedCategories.subcategories.subSubcategories": subSubCategory
+        });
+
+        let filteredProviders = [];
+
+        for (const provider of providers) {
+            for (const category of provider.selectedCategories) {
+                for (const subcategory of category.subcategories) {
+                    if (subcategory.subSubcategories.includes(subSubCategory)) {
+                        const providerLocation = await getCoordinatesFromPostalCode(category.postalCode);
+
+                        if (!providerLocation) continue;
+
+                        // Calculate distance between client & provider
+                        const distance = geolib.getDistance(
+                            { latitude: clientLocation.lat, longitude: clientLocation.lng },
+                            { latitude: providerLocation.lat, longitude: providerLocation.lng }
+                        );
+
+                        // If within service radius, add provider
+                        if (distance <= category.serviceRadius) {
+                            filteredProviders.push({
+
+                                category: category.category,
+                                subcategory: subcategory.subcategory,
+                                subSubCategory: subSubCategory,
+                                distance: distance,
+                                postalCode: category.postalCode
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        res.status(200).json(filteredProviders.length > 0 ? filteredProviders : { message: "No providers available in your area." });
+
+    } catch (error) {
+        console.error("Error fetching service providers:", error);
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+async function getCoordinatesFromPostalCode(postalCode) {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || "AIzaSyDI6buRCYVvdCZ1mUAk4r9s8Z14uzxZxsc";
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${postalCode}&key=${apiKey}`;
+
+    try {
+        const response = await axios.get(url);
+        if (response.data.results.length > 0) {
+            return response.data.results[0].geometry.location; // { lat, lng }
+        } else {
+            throw new Error("Invalid postal code");
+        }
+    } catch (error) {
+        console.error("Error fetching coordinates:", error);
+        return null;
+    }
+}

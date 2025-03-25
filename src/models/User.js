@@ -11,12 +11,17 @@ const UserSchema = new mongoose.Schema({
     enum: ["user", "admin", "service_provider"],
     default: "user",
   },
+  loginMethod: {
+    type: String,
+    enum: ["password", "google","facebook"],
+    default: "password",
+  }
 });
 UserSchema.methods.generateAuthToken = function () {
   return jwt.sign(
-    { _id: this._id, email: this.email, role: this.role }, 
-    process.env.JWT_SECRET, 
-    { expiresIn: "7d" } 
+    { _id: this._id, email: this.email, role: this.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
   );
 };
 module.exports = mongoose.model("User", UserSchema);

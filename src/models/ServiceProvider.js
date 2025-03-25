@@ -22,6 +22,8 @@ const ServiceProviderSchema = new mongoose.Schema({
     selectedCategories: [
         {
             category: { type: String, required: true },
+            serviceRadius: { type: Number, required: true }, 
+            postalCode: { type: String, required: true }, 
             subcategories: [
                 {
                     subcategory: { type: String, required: true },
@@ -32,15 +34,12 @@ const ServiceProviderSchema = new mongoose.Schema({
     ],
     verificationDocument: { type: String, default: null },
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
-    reasonOfRejection: {
-        type: String, default: null
-    },
+    reasonOfRejection: { type: String, default: null },
     accountStatus: { type: String, enum: ["working", "on_hold"], default: "working" },
     resaonOfHold: { type: String, default: null },
     onHold: { type: Boolean, default: false },
     reviews: [ReviewSchema]
 });
-
 
 ServiceProviderSchema.methods.generateAuthToken = function () {
     return jwt.sign(

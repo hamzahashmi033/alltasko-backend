@@ -38,3 +38,40 @@ exports.checkCategory = async (req, res) => {
         res.status(500).json({ error: "Error checking category", message: error.message });
     }
 };
+
+
+exports.searchSubSubcategories = async (req, res) => {
+    try {
+        const query = req.query.q; // Get search query from request
+
+        if (!query) {
+            return res.status(400).json({ error: "Search query is required" });
+        }
+
+        // Find subSubcategories matching the query
+        const categories = await Category.find({
+            "subcategories.subSubcategories": { $regex: `^${query}`, $options: "i" }
+        });
+
+        // Extract only subSubcategories
+        let subSubcategories = [];
+        categories.forEach(category => {
+            category.subcategories.forEach(subcategory => {
+                subcategory.subSubcategories.forEach(subSub => {
+                    if (subSub.toLowerCase().startsWith(query.toLowerCase())) {
+                        subSubcategories.push(subSub);
+                    }
+                });
+            });
+        });
+
+        // Remove duplicates
+        subSubcategories = [...new Set(subSubcategories)];
+
+        res.json({ results: subSubcategories });
+
+    } catch (error) {
+        console.error("Search Error:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};

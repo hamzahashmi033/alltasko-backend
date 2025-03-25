@@ -3,8 +3,11 @@ const cors = require("cors");
 const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
 const path = require("path");
+const session = require("express-session")
+const passport = require("passport")
 require("dotenv").config();
-
+require("./config/google");
+require("./config/facebook")
 const app = express();
 // Middleware
 app.use(express.json());
@@ -12,14 +15,15 @@ app.use(cors());
 app.use(morgan("dev"));
 app.use(cookieParser());
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
-
-
+app.use(session({secret:"dsdsddsfsdfdsfsdsdfsdf",resave:false,saveUninitialized:false}))
+app.use(passport.session())
 
 
 // Import Routes
 const userRoutes = require("./routes/userRoutes");
 const categoryRoutes = require("./routes/categoryRoutes")
 const serviceProviderRoutes = require("./routes/serviceProviderRoutes")
+const authRoutes = require("./routes/auth");
 // checking server state 
 app.get("/", (req, res) => {
    return res.status(200).send("Working");
@@ -28,5 +32,6 @@ app.get("/", (req, res) => {
 app.use("/api/users", userRoutes);
 app.use("/api/category",categoryRoutes)
 app.use("/api/service-provider",serviceProviderRoutes)
+app.use("/auth", authRoutes);
 
 module.exports = app;

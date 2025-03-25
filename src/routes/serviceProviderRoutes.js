@@ -29,4 +29,5 @@ router.put("/update-provider-status/:providerId", verifyToken, protectedAdmin, S
 // admin
 router.put("/update-account-hold-status/:providerId", verifyToken, protectedAdmin, ServiceProviderController.updateProviderHoldStatus)
 router.put("/change-password", verifyToken, ServiceProviderController.updateProviderPassword)
+router.get("/get-available-provider-by-postal-code",ServiceProviderController.getAvailableProviders)
 module.exports = router;
