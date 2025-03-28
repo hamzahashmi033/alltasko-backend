@@ -5,7 +5,8 @@ const mongoose = require("mongoose");
 const { sendVerificationEmail } = require("../utils/sendVerificationEmail")
 const crypto = require("crypto")
 const axios = require("axios")
-const geolib = require("geolib")
+const geolib = require("geolib");
+const { sendOnBoardingEmailToProvider } = require("../utils/sendOnBoardEmailToProvider");
 // Create Service Provider Account
 exports.createServiceProviderAccount = async (req, res) => {
     try {
@@ -90,6 +91,7 @@ exports.createServiceProviderAccount = async (req, res) => {
         );
 
         const token = existingUser.generateAuthToken();
+        await sendOnBoardingEmailToProvider(email, name)
         res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
             .status(200)
             .json({ message: "Service provider registered successfully", token });
@@ -648,6 +650,64 @@ exports.getAvailableProviders = async (req, res) => {
     } catch (error) {
         console.error("Error fetching service providers:", error);
         res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+exports.forgetPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const provider = await ServiceProvider.findOne({ email });
+
+        if (!provider) {
+            return res.status(404).json({ message: "No account found with this email." });
+        }
+
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString("hex");
+        provider.resetPasswordToken = resetToken;
+        provider.resetPasswordExpires = Date.now() + 3600000; // Token expires in 1 hour
+        await provider.save();
+
+        // Send reset email
+        const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: provider.email,
+            subject: "Password Reset Request",
+            text: `Hello ${provider.name},\n\nYou requested a password reset. Click the link below to reset your password:\n\n${resetLink}\n\nIf you did not request this, please ignore this email.\n\nBest,\nAlltasko Team`,
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.status(200).json({ message: "Password reset link sent to your email." });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
+    }
+}
+exports.resetPassword = async (req, res) => {
+    try {
+        const { token, newPassword } = req.body;
+        const provider = await ServiceProvider.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() }, // Check token expiry
+        });
+
+        if (!provider) {
+            return res.status(400).json({ message: "Invalid or expired token." });
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        provider.password = hashedPassword;
+        provider.resetPasswordToken = null;
+        provider.resetPasswordExpires = null;
+        await provider.save();
+
+        res.status(200).json({ message: "Password has been successfully reset." });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Something went wrong." });
     }
 };
 

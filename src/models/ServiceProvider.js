@@ -38,7 +38,9 @@ const ServiceProviderSchema = new mongoose.Schema({
     accountStatus: { type: String, enum: ["working", "on_hold"], default: "working" },
     resaonOfHold: { type: String, default: null },
     onHold: { type: Boolean, default: false },
-    reviews: [ReviewSchema]
+    reviews: [ReviewSchema],
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null },
 });
 
 ServiceProviderSchema.methods.generateAuthToken = function () {

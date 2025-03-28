@@ -13,11 +13,13 @@ const UserSchema = new mongoose.Schema({
   },
   loginMethod: {
     type: String,
-    enum: ["password", "google","facebook"],
+    enum: ["password", "google", "facebook"],
     default: "password",
-  }
-});
-UserSchema.methods.generateAuthToken = function () {
+  },
+  resetPasswordToken: { type: String, default: null },
+  resetPasswordExpires: { type: Date, default: null },
+},{ timestamps: true });
+UserSchema.methods.generateAuthToken = function () { 
   return jwt.sign(
     { _id: this._id, email: this.email, role: this.role },
     process.env.JWT_SECRET,
