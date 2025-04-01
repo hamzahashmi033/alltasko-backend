@@ -8,4 +8,7 @@ router.post("/check-category-and-subcategories", categiryController.checkCategor
 
 
 router.get("/search-subcategories", categiryController.searchSubSubcategories);
+
+router.get("/get-subcategories", categiryController.getSubCategories)
+router.get("/get-subsubCategoires", categiryController.getsubsubCategories)
 module.exports = router;
