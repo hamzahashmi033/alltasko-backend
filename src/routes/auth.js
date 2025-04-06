@@ -24,7 +24,7 @@ router.get(
 
         // Send token as cookie or JSON response
         res.cookie("token", token, { httpOnly: true });
-        res.redirect("/"); // Redirect to frontend/dashboard
+        res.redirect("http://localhost:3000/"); // Redirect to frontend/dashboard
     }
 );
 // Facebook Callback Route

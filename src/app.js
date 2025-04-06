@@ -26,14 +26,25 @@ app.use(cors({
          callback(new Error("Not allowed by CORS"));
       }
    },
-   credentials: true, // Allow sending cookies
+   credentials: true,  // Allow sending cookies (sessions)
    methods: ["GET", "POST", "PUT", "DELETE"], // Allow these methods
    allowedHeaders: ["Content-Type", "Authorization"] // Allow these headers
 }));
+
+
 app.use(morgan("dev"));
 app.use(cookieParser());
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
-app.use(session({ secret: "dsdsddsfsdfdsfsdsdfsdf", resave: false, saveUninitialized: false }))
+app.use(session({
+   secret: "dsdsddsfsdfdsfsdsdfsdf",
+   resave: false,
+   saveUninitialized: false,
+   cookie: {
+      httpOnly: true, // Ensures the cookie is not accessible via JavaScript
+      secure: process.env.NODE_ENV === "production", // Set to true if using HTTPS
+      sameSite: "None", // Allow cross-origin cookies
+   }
+}));
 app.use(passport.session())
 
 

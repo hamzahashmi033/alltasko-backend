@@ -5,7 +5,7 @@ const crypto = require("crypto")
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT,
-  secure: false,
+  secure: true,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -47,7 +47,7 @@ exports.sendVerificationCode = async (req, res) => {
     await user.save();
     await sendVerificationEmail(email, verificationCode);
 
-    res.status(200).json({ message: "Verification code sent" });
+    res.status(200).json({ message: "Verification code sent", success: true });
   } catch (error) {
     res.status(500).json({ error: "Error sending verification code", message: error.message });
   }
@@ -78,12 +78,16 @@ exports.verifyCodeAndRegister = async (req, res) => {
     user.verificationCode = null;
 
     await user.save();
-
+    const userInfo = {
+      email: user.email,
+      name: user.name,
+      loginMethod: user.loginMethod, // fallback to 'email'
+    };
     const token = user.generateAuthToken()
     res
       .cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
       .status(200)
-      .json({ message: "User registered successfully", token });
+      .json({ message: "User registered successfully", token, user: userInfo });
 
   } catch (error) {
     res.status(500).json({ error: "Error verifying code", message: error.message });
@@ -211,3 +215,67 @@ exports.createUser = async (req, res) => {
     res.status(500).json({ error: "Error creating user" });
   }
 };
+
+exports.sendResetPasswordCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const resetCode = crypto.randomInt(100000, 999999).toString();
+    const expires = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+    user.resetPasswordToken = resetCode;
+    user.resetPasswordExpires = new Date(expires);
+
+    await user.save();
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Reset Your Password",
+      text: `Your password reset code is: ${resetCode}. It will expire in 15 minutes.`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.status(200).json({ message: "Reset code sent to email", success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Error sending reset code", message: error.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, resetCode, newPassword } = req.body;
+
+    if (!email || !resetCode || !newPassword) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (
+      !user ||
+      user.resetPasswordToken !== resetCode ||
+      !user.resetPasswordExpires ||
+      user.resetPasswordExpires < new Date()
+    ) {
+      return res.status(400).json({ error: "Invalid or expired reset code" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+
+    await user.save();
+
+    res.status(200).json({ message: "Password reset successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Error resetting password", message: error.message });
+  }
+};
+

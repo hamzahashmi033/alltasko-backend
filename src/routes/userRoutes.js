@@ -13,4 +13,6 @@ router.post("/login", userController.loginUser)
 router.delete('/delete', verifyToken, userController.deleteUser)
 router.put("/change-password", verifyToken, userController.changePassword);
 router.get('/me', verifyToken, userController.getUserDetails)
+router.post("/forget-password", userController.sendResetPasswordCode)
+router.post("/reset-password", userController.resetPassword)
 module.exports = router;
