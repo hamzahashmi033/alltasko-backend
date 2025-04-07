@@ -66,48 +66,86 @@ app.use("/auth", authRoutes);
 app.use("/api/leads", leadGenerationRoutes)
 async function createCustomRequestConfig() {
    const serviceConfig = new FormConfiguration({
-      serviceType: "CustomRequest",
+      serviceType: "Cleaning Services",
       questions: [
          {
-            fieldName: "serviceNature",
-            questionText: "What best describes your request?",
-            fieldType: "select",
-            options: ["Consultation", "Repair", "Emergency", "Delivery", "Support", "Inquiry", "Other"],
-            required: true,
-            placeholder: "Select a category"
-         },
-         {
-            fieldName: "urgencyLevel",
-            questionText: "How urgent is your request?",
+            fieldName: "cleaningType",
+            questionText: "What type of cleaning service do you need?",
             fieldType: "radio",
-            options: ["Emergency", "Within 24 hours", "This week", "Not urgent"],
+            options: [
+               "Home Cleaning",
+               "Office Cleaning",
+               "Deep Cleaning",
+               "Move-in/Move-out",
+               "Post-Construction"
+            ],
             required: true
          },
          {
-            fieldName: "locationType",
-            questionText: "Where is this service required?",
-            fieldType: "select",
-            options: ["Home", "Office", "Public Place", "Remote/Online", "Other"],
-            required: true,
-            placeholder: "Select location type"
-         },
-         {
-            fieldName: "serviceTimePreference",
-            questionText: "When would you prefer the service to be delivered?",
-            fieldType: "select",
-            options: ["Morning", "Afternoon", "Evening", "Weekend", "Anytime"],
-            required: false,
-            placeholder: "Choose time slot"
-         },
-         {
-            fieldName: "shortDescription",
-            questionText: "Briefly describe what you need",
+            fieldName: "areaDescription",
+            questionText: "Briefly describe the area that needs cleaning",
             fieldType: "text",
             required: true,
-            placeholder: "Describe your request in a few words"
+            placeholder: "e.g. 2 bedrooms, 1 bathroom, living area"
+         },
+         {
+            fieldName: "hasSensitiveSurfaces",
+            questionText: "Are there any surfaces or materials that need special care?",
+            fieldType: "checkbox",
+            options: [
+               "Wooden flooring",
+               "Marble or tiles",
+               "Electronics or appliances",
+               "Delicate furniture",
+               "None"
+            ],
+            required: false
+         },
+         {
+            fieldName: "cleaningFrequency",
+            questionText: "How often would you like the service?",
+            fieldType: "radio",
+            options: [
+               "One-time only",
+               "Weekly",
+               "Bi-weekly",
+               "Monthly",
+               "Not sure yet"
+            ],
+            required: true
+         },
+         {
+            fieldName: "urgency",
+            questionText: "How urgent is your request?",
+            fieldType: "radio",
+            options: [
+               "Today",
+               "Within 3 Days",
+               "This Week",
+               "Just Planning"
+            ],
+            required: true
+         },
+         {
+            fieldName: "hasPets",
+            questionText: "Are there any pets on the premises?",
+            fieldType: "radio",
+            options: [
+               "Yes",
+               "No"
+            ],
+            required: false
+         },
+         {
+            fieldName: "cleaningConcerns",
+            questionText: "Any specific concerns or cleaning instructions?",
+            fieldType: "text",
+            required: false,
+            placeholder: "e.g. Focus on kitchen, avoid strong chemicals, etc."
          }
       ]
-   });
+   }
+   );
 
    try {
       await serviceConfig.save();

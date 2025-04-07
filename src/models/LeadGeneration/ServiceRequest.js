@@ -46,11 +46,11 @@ const ServiceRequest = mongoose.model('ServiceRequest', BaseServiceSchema);
 // Handyman Service schema
 const HandymanRequest = ServiceRequest.discriminator('HandymanRequest', new mongoose.Schema({
     jobType: { type: String, enum: ["New Installation", "Repair", "Not Sure"] },
-    urgency: { type: String, enum: ["Immediate", "Within 3 Days", "Within a Week", "Just Exploring"] },
+    urgency: { type: String, enum: ["Immediate (Today/Tomorrow)", "Within 3 Days", "Within a Week", "Just Exploring"] },
     location: { type: String, enum: ["Apartment", "House", "Office", "Commercial Space"] },
     issueDescription: String,
-    projectSize: { type: String, enum: ["Small", "Medium", "Large"] },
-    materialsNeeded: { type: String, enum: ["I have everything", "Need guidance", "Please bring all"] },
+    projectSize: { type: String, enum: ["Small (Less than 1 hour)", "Medium (1-3 hours)", "Large (More than 3 hours)"] },
+    materialsNeeded: { type: String, enum: ["I have everything", "Need guidance", "Please bring all required materials"] },
 }));
 const MovingRequest = ServiceRequest.discriminator('MovingRequest',
     new mongoose.Schema({
@@ -108,5 +108,43 @@ const CustomRequest = ServiceRequest.discriminator('CustomRequest', new mongoose
         required: true
     },
 }));
+const CleaningRequest = ServiceRequest.discriminator('CleaningRequest', new mongoose.Schema({
+    cleaningType: {
+        type: String,
+        enum: ["Home Cleaning", "Office Cleaning", "Deep Cleaning", "Move-in/Move-out", "Post-Construction"],
+        required: true
+    },
+    areaDescription: {
+        type: String,
+        required: true
+    },
+    hasSensitiveSurfaces: [{
+        type: String,
+        enum: [
+            "Wooden flooring",
+            "Marble or tiles",
+            "Electronics or appliances",
+            "Delicate furniture",
+            "None"
+        ]
+    }],
+    cleaningFrequency: {
+        type: String,
+        enum: ["One-time only", "Weekly", "Bi-weekly", "Monthly", "Not sure yet"],
+        required: true
+    },
+    urgency: {
+        type: String,
+        enum: ["Today", "Within 3 Days", "This Week", "Just Planning"],
+        required: true
+    },
+    hasPets: {
+        type: String,
+        enum: ["Yes", "No"]
+    },
+    cleaningConcerns: {
+        type: String
+    }
+}));
 
-module.exports = { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest };
+module.exports = { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest };

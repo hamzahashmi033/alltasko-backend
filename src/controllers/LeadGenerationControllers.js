@@ -2,14 +2,15 @@ const FormConfiguration = require("../models/LeadGeneration/LeadFormConfiguratio
 const fs = require('fs');
 const path = require('path');
 const ServiceProvider = require('../models/ServiceProvider');
-const { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest } = require("../models/LeadGeneration/ServiceRequest");
+const { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest } = require("../models/LeadGeneration/ServiceRequest");
 const serviceUpload = require("../middlewares/serviceUpload")
 const multer = require('multer')
 const getServiceModel = (serviceType) => {
     switch (serviceType) {
-        case 'HandymanRequest': return HandymanRequest;
-        case 'MovingRequest': return MovingRequest;
+        case 'Handyman Services': return HandymanRequest;
+        case 'Moving Services': return MovingRequest;
         case 'CustomRequest': return CustomRequest;
+        case 'Cleaning Services': return CleaningRequest;
         default: return ServiceRequest;
     }
 };
@@ -172,7 +173,7 @@ exports.deleteRequest = async (req, res) => {
 
 exports.getUserRequests = async (req, res) => {
     try {
-        
+
         const userId = req.user._id;
         const requests = await ServiceRequest.find({ customer: userId })
             .populate('serviceProvider', 'name')
