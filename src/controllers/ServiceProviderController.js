@@ -629,15 +629,21 @@ exports.getAvailableProviders = async (req, res) => {
                             { latitude: providerLocation.lat, longitude: providerLocation.lng }
                         );
 
-                        // If within service radius, add provider
+                        // If within service radius, include the provider in the filtered list
                         if (distance <= category.serviceRadius) {
+                            // Push the provider's full data, without selectedCategories
                             filteredProviders.push({
-
-                                category: category.category,
-                                subcategory: subcategory.subcategory,
-                                subSubCategory: subSubCategory,
-                                distance: distance,
-                                postalCode: category.postalCode
+                                _id: provider._id,
+                                name: provider.name,
+                                email: provider.email,
+                                about: provider.about,
+                                contactInfo: provider.contactInfo,
+                                country: provider.country,
+                                city: provider.city,
+                                postalCode: provider.postalCode,
+                                profilePicture: provider.profilePicture,
+                                reviews: provider.reviews,
+                                distance: distance // Optionally include the distance from the client
                             });
                         }
                     }
@@ -645,13 +651,18 @@ exports.getAvailableProviders = async (req, res) => {
             }
         }
 
-        res.status(200).json(filteredProviders.length > 0 ? filteredProviders : { message: "No providers available in your area." });
+        if (filteredProviders.length === 0) {
+            return res.status(404).json({ message: "No service providers found within the specified radius" });
+        }
+
+        res.status(200).json(filteredProviders);
 
     } catch (error) {
         console.error("Error fetching service providers:", error);
         res.status(500).json({ message: "Server Error", error: error.message });
     }
 };
+
 
 exports.forgetPassword = async (req, res) => {
     try {

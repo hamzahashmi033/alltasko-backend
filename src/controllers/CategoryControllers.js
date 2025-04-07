@@ -108,3 +108,67 @@ exports.getsubsubCategories = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error!", type: false })
     }
 }
+exports.findHierarchyBySubSubcategory = async (req, res) => {
+    try {
+        const { subSubcategory } = req.body;
+
+        if (!subSubcategory) {
+            return res.status(400).json({ error: "subSubcategory is required in the request body" });
+        }
+
+        const categories = await Category.find({
+            "subcategories.subSubcategories": { $regex: `^${subSubcategory}$`, $options: "i" }
+        });
+
+        // If no categories are found, return null with success false
+        if (!categories.length) {
+            return res.status(200).json({
+                category: null,
+                subcategory: null,
+                subSubcategory: null,
+                success: false
+            });
+        }
+
+        let foundMatch = false;
+
+        // Loop through categories and subcategories to find a matching subSubcategory
+        for (const category of categories) {
+            for (const sub of category.subcategories) {
+                const match = sub.subSubcategories.find(
+                    subSub => subSub.toLowerCase() === subSubcategory.toLowerCase()
+                );
+
+                if (match) {
+                    // Found a match, return the corresponding data
+                    foundMatch = true;
+                    const categoryData = category.category || null;
+                    const subcategoryData = sub.subcategory || null;
+
+                    return res.status(200).json({
+                        category: categoryData,
+                        subcategory: subcategoryData,
+                        subSubcategory: match,
+                        success: true
+                    });
+                }
+            }
+        }
+
+        // If no match is found in any of the subcategories, return null with success false
+        if (!foundMatch) {
+            return res.status(200).json({
+                category: null,
+                subcategory: null,
+                subSubcategory: null,
+                success: false
+            });
+        }
+
+    } catch (error) {
+        console.error("Hierarchy Lookup Error:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+

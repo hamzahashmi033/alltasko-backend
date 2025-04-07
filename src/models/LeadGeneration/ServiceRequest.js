@@ -5,28 +5,35 @@ const BaseServiceSchema = new mongoose.Schema({
     serviceTypeSubCategory: { type: String, required: true },
     serviceTypeSubSubCategory: { type: String, required: true },
     status: { type: String, default: "pending", enum: ["pending", "assigned", "completed", "cancelled"] },
-    description: {
-        type: String,
-        required: false,
-        maxlength: 500
-    },
     photos: [{
         type: String,
         required: false
     }],
     serviceProvider: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'ServiceProvider',
-        required: false,
-        default: null
+        type: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'ServiceProvider',
+                required: false
+            }
+        ],
+        default: []
     },
     customer: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: false
+    },
+    customerDetails: {
         name: { type: String, required: true },
-        phone: { type: String, required: true },
         email: { type: String, required: true },
         address: { type: String, required: true },
         zipCode: { type: String, required: true },
-        contactPreference: { type: String, enum: ["Call", "SMS", "WhatsApp", "Email"], required: true }
+        contactPreference: {
+            type: String,
+            enum: ["Call", "SMS", "WhatsApp", "Email"],
+            required: true
+        }
     },
     createdAt: { type: Date, default: Date.now }
 }, {
@@ -75,5 +82,31 @@ const MovingRequest = ServiceRequest.discriminator('MovingRequest',
         }],
     })
 );
+const CustomRequest = ServiceRequest.discriminator('CustomRequest', new mongoose.Schema({
+    serviceNature: {
+        type: String,
+        enum: ["Consultation", "Repair", "Emergency", "Delivery", "Support", "Inquiry", "Other"],
+        required: true
+    },
+    urgencyLevel: {
+        type: String,
+        enum: ["Emergency", "Within 24 hours", "This week", "Not urgent"],
+        required: true
+    },
+    locationType: {
+        type: String,
+        enum: ["Home", "Office", "Public Place", "Remote/Online", "Other"],
+        required: true
+    },
+    serviceTimePreference: {
+        type: String,
+        enum: ["Morning", "Afternoon", "Evening", "Weekend", "Anytime"],
+        required: false
+    },
+    shortDescription: {
+        type: String,
+        required: true
+    },
+}));
 
-module.exports = { ServiceRequest, HandymanRequest, MovingRequest };
+module.exports = { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest };

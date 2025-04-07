@@ -2,13 +2,14 @@ const FormConfiguration = require("../models/LeadGeneration/LeadFormConfiguratio
 const fs = require('fs');
 const path = require('path');
 const ServiceProvider = require('../models/ServiceProvider');
-const { ServiceRequest, HandymanRequest, MovingRequest } = require("../models/LeadGeneration/ServiceRequest");
+const { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest } = require("../models/LeadGeneration/ServiceRequest");
 const serviceUpload = require("../middlewares/serviceUpload")
 const multer = require('multer')
 const getServiceModel = (serviceType) => {
     switch (serviceType) {
         case 'HandymanRequest': return HandymanRequest;
         case 'MovingRequest': return MovingRequest;
+        case 'CustomRequest': return CustomRequest;
         default: return ServiceRequest;
     }
 };
@@ -30,11 +31,11 @@ exports.createRequest = async (req, res) => {
         const { serviceType, ...requestData } = req.body;
 
         // Handle file uploads - updated to match serviceUpload's structure
+
         let photoUrls = [];
         if (req.files) {
             photoUrls = req.files.map(file => `/uploads/services/${file.filename}`);
         }
-
         const ServiceModel = getServiceModel(serviceType);
         const newRequest = new ServiceModel({
             ...requestData,
@@ -68,6 +69,26 @@ exports.createRequest = async (req, res) => {
             message: err.message,
             errorType: err.name
         });
+    }
+};
+exports.picRequest = async (req, res) => {
+    try {
+        const { serviceType, ...requestData } = req.body;
+
+        // Handle file uploads - updated to match serviceUpload's structure
+
+        let photoUrls = [];
+        if (req.files) {
+            photoUrls = req.files.map(file => `/uploads/services/${file.filename}`);
+        }
+        console.log(req.files);
+        console.log(photoUrls, "dshdishdi");
+        return res.status(200).json({ messgae: "dgusuds" })
+
+    } catch (err) {
+        // Enhanced error handling
+        console.log(err);
+
     }
 };
 
@@ -149,3 +170,20 @@ exports.deleteRequest = async (req, res) => {
 };
 
 
+exports.getUserRequests = async (req, res) => {
+    try {
+        
+        const userId = req.user._id;
+        const requests = await ServiceRequest.find({ customer: userId })
+            .populate('serviceProvider', 'name')
+            .populate('customer', 'name email')
+            .sort({ createdAt: -1 });
+        if (!requests || requests.length === 0) {
+            return res.status(404).json({ message: 'No service requests found for this user.' });
+        }
+        res.status(200).json(requests);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error retrieving user service requests.' });
+    }
+};

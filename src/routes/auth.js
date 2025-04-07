@@ -31,20 +31,28 @@ router.get(
 router.get(
     "/facebook/callback",
     passport.authenticate("facebook", {
-        successRedirect: "/", // Redirect on success
-        failureRedirect: "/login", // Redirect on failure
-    }), (req, res) => {
-        // Generate JWT Token
-        const token = jwt.sign(
-            { _id: req.user._id, email: req.user.email, role: req.user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: "7d" }
-        );
+        successRedirect: "http://localhost:3000/", // Redirect on success
+        failureRedirect: "http://localhost:3000/login", // Redirect on failure
+    }),
+    (req, res) => {
+        try {
+            // Generate JWT Token
+            const token = jwt.sign(
+                { _id: req.user._id, email: req.user.email, role: req.user.role },
+                process.env.JWT_SECRET,
+                { expiresIn: "7d" }
+            );
 
-        // Send token as cookie or JSON response
-        res.cookie("token", token, { httpOnly: true });
+            // Send token as cookie or JSON response
+            res.cookie("token", token, { httpOnly: true });
+            res.redirect("/"); // Make sure to redirect to home after success
+        } catch (error) {
+            console.error("Error generating JWT token:", error);
+            res.redirect("/login"); // Send user to login in case of failure
+        }
     }
 );
+
 // Logout Route
 router.get("/logout", (req, res) => {
     req.logout(() => {

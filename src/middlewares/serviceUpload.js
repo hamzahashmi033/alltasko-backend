@@ -38,7 +38,7 @@ const serviceUpload = multer({
   storage: serviceStorage,
   fileFilter: serviceFileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit per file
+    fileSize: 50 * 1024 * 1024, // 50MB limit per file
     files: 5 // Maximum 5 files per upload
   }
 });

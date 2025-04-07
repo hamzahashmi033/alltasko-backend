@@ -11,4 +11,6 @@ router.get("/search-subcategories", categiryController.searchSubSubcategories);
 
 router.get("/get-subcategories", categiryController.getSubCategories)
 router.get("/get-subsubCategoires", categiryController.getsubsubCategories)
+router.post("/find-hierarchy", categiryController.findHierarchyBySubSubcategory);
+
 module.exports = router;

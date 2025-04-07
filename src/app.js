@@ -64,88 +64,57 @@ app.use("/api/category", categoryRoutes)
 app.use("/api/service-provider", serviceProviderRoutes)
 app.use("/auth", authRoutes);
 app.use("/api/leads", leadGenerationRoutes)
-// async function createHandymanConfig() {
-//    const serviceConfig = new FormConfiguration({
-//       serviceType: "MovingService",
-//       questions: [
-//          {
-//             fieldName: "moveType",
-//             questionText: "What are you moving?",
-//             fieldType: "radio",
-//             required: true,
-//             options: [
-//                "Household items",
-//                "Office equipment",
-//                "Just furniture",
-//                "Specialty items (piano, safe, etc.)",
-//                "Storage items"
-//             ]
-//          },
-//          {
-//             fieldName: "urgency",
-//             questionText: "How soon do you need help?",
-//             fieldType: "radio",
-//             required: true,
-//             options: [
-//                "Immediately (today/tomorrow)",
-//                "Within 3 days",
-//                "Planning ahead (1+ week)",
-//                "Just getting estimates"
-//             ]
-//          },
-//          {
-//             fieldName: "itemsDescription",
-//             questionText: "Briefly describe what needs moving:",
-//             fieldType: "text",
-//             required: true,
-//             placeholder: "e.g. '3-bedroom apartment' or 'grand piano'"
-//          },
-//          {
-//             fieldName: "specialRequirements",
-//             questionText: "Any special handling needed?",
-//             fieldType: "checkbox",
-//             required: false,
-//             options: [
-//                "Fragile items",
-//                "Disassembly/reassembly",
-//                "Packing materials",
-//                "Storage needed",
-//                "Heavy lifting (>100 lbs)"
-//             ]
-//          },
-//          {
-//             fieldName: "accessInfo",
-//             questionText: "Any access challenges?",
-//             fieldType: "checkbox",
-//             required: false,
-//             options: [
-//                "Stairs/no elevator",
-//                "Narrow hallways",
-//                "Limited parking",
-//                "High floor"
-//             ]
-//          },
-//          {
-//             fieldName: "serviceAddOns",
-//             questionText: "Additional services needed?",
-//             fieldType: "checkbox",
-//             required: false,
-//             options: [
-//                "Packing/unpacking",
-//                "Cleaning",
-//                "Junk removal",
-//                "Insurance coverage"
-//             ]
-//          }
-//       ]
-//    });
+async function createCustomRequestConfig() {
+   const serviceConfig = new FormConfiguration({
+      serviceType: "CustomRequest",
+      questions: [
+         {
+            fieldName: "serviceNature",
+            questionText: "What best describes your request?",
+            fieldType: "select",
+            options: ["Consultation", "Repair", "Emergency", "Delivery", "Support", "Inquiry", "Other"],
+            required: true,
+            placeholder: "Select a category"
+         },
+         {
+            fieldName: "urgencyLevel",
+            questionText: "How urgent is your request?",
+            fieldType: "radio",
+            options: ["Emergency", "Within 24 hours", "This week", "Not urgent"],
+            required: true
+         },
+         {
+            fieldName: "locationType",
+            questionText: "Where is this service required?",
+            fieldType: "select",
+            options: ["Home", "Office", "Public Place", "Remote/Online", "Other"],
+            required: true,
+            placeholder: "Select location type"
+         },
+         {
+            fieldName: "serviceTimePreference",
+            questionText: "When would you prefer the service to be delivered?",
+            fieldType: "select",
+            options: ["Morning", "Afternoon", "Evening", "Weekend", "Anytime"],
+            required: false,
+            placeholder: "Choose time slot"
+         },
+         {
+            fieldName: "shortDescription",
+            questionText: "Briefly describe what you need",
+            fieldType: "text",
+            required: true,
+            placeholder: "Describe your request in a few words"
+         }
+      ]
+   });
 
-//    try {
-//       await serviceConfig.save();
-//       console.log("Handyman configuration saved successfully!");
-//    } catch (err) {
-//       console.error("Error saving handyman configuration:", err);
-//    }
-// }
-// createHandymanConfig()
+   try {
+      await serviceConfig.save();
+      console.log("CustomRequest configuration saved successfully!");
+   } catch (err) {
+      console.error("Error saving CustomRequest configuration:", err);
+   }
+}
+// createCustomRequestConfig()
 module.exports = app;

@@ -13,7 +13,8 @@ passport.use(
         },
         async (accessToken, refreshToken, profile, done) => {
             try {
-                // Extract user details
+                console.log("Facebook Profile: ", profile); // Add this to see the profile details
+
                 const email = profile.emails ? profile.emails[0].value : null;
                 const name = profile.displayName;
                 const facebookId = profile.id;
@@ -25,8 +26,8 @@ passport.use(
                         email,
                         name,
                         role: "user",
-                        isVerified:true,
-                        loginMethod: "facebook", // Store login source
+                        isVerified: true,
+                        loginMethod: "facebook",
                     });
                     await user.save();
                 } else if (user.loginMethod !== "facebook") {
@@ -40,16 +41,3 @@ passport.use(
         }
     )
 );
-
-// Serialize user
-passport.serializeUser((user, done) => {
-    done(null, user.id);
-});
-
-// Deserialize user
-passport.deserializeUser(async (id, done) => {
-    const user = await User.findById(id);
-    done(null, user);
-});
-
-module.exports = passport;
