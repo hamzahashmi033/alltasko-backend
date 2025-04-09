@@ -172,3 +172,39 @@ exports.findHierarchyBySubSubcategory = async (req, res) => {
 };
 
 
+exports.getCategories = async (req, res) => {
+    try {
+        // Fetch categories from the database without subcategories and subSubcategories
+        const categories = await Category.find({}, 'category'); // Only select the 'category' field
+        if (!categories) {
+            return res.status(404).json({ message: 'Categories not found' });
+        }
+        res.status(200).json(categories);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error fetching categories', error });
+    }
+};
+
+exports.getSubcategoriesByCategory = async (req, res) => {
+    try {
+        const { category } = req.params; // Get category name from params
+        const categoryexits = await Category.findOne({ category: category });
+
+        if (!categoryexits) {
+            return res.status(404).json({ message: `Category '${categoryName}' not found` });
+        }
+
+        // Format the subcategories and subSubcategories
+        const subcategoriesWithSubSubcategories = categoryexits.subcategories.map(subcategory => ({
+            subcategory: subcategory.subcategory,    // Subcategory name
+            subSubcategories: subcategory.subSubcategories, // List of subSubcategories
+        }));
+
+        // Return the subcategories along with their subSubcategories
+        res.status(200).json(subcategoriesWithSubSubcategories);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error fetching subcategories', error });
+    }
+};

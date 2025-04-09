@@ -187,11 +187,11 @@ exports.changePassword = async (req, res) => {
 exports.getUserDetails = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password");
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return res.status(404).json({ error: "User not found", isAuthenticated: false });
 
-    res.status(200).json(user);
+    res.status(200).json({ user, isAuthenticated: true });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching user details" });
+    res.status(500).json({ error: "Error fetching user details", isAuthenticated: false });
   }
 };
 // Get all users
