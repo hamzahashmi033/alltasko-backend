@@ -50,7 +50,7 @@ const HandymanRequest = ServiceRequest.discriminator('HandymanRequest', new mong
     location: { type: String, enum: ["Apartment", "House", "Office", "Commercial Space"] },
     issueDescription: String,
     projectSize: { type: String, enum: ["Small (Less than 1 hour)", "Medium (1-3 hours)", "Large (More than 3 hours)"] },
-    materialsNeeded: { type: String, enum: ["I have everything", "Need guidance", "Please bring all required materials"] },
+    materialsNeeded: { type: String, enum: ["I have everything", "Need guidance on what to buy", "Please bring all required materials"] },
 }));
 const MovingRequest = ServiceRequest.discriminator('MovingRequest',
     new mongoose.Schema({
