@@ -101,7 +101,17 @@ exports.createServiceProviderAccount = async (req, res) => {
         res.status(500).json({ message: "Server Error", error: error.message });
     }
 };
-
+exports.getServiceProviderDetails = async (req, res) => {
+    try {
+        const provider = await ServiceProvider.findByIdd(req.user._id).select("-password");
+        if (!provider) {
+            return res.status(404).json({ message: "Professional not found!" })
+        }
+        return res.status(200).json({ provider, isProfessional: true })
+    } catch (error) {
+        res.status(500).json({ error: "Error fetching professional details", isProfessional: false });
+    }
+}
 exports.loginServiceProvider = async (req, res) => {
     try {
         const { email, password } = req.body;

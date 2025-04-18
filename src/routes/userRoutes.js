@@ -5,6 +5,10 @@ const { verifyToken } = require("../middlewares/verifyTokens");
 // adimin
 router.get("/", userController.getAllUsers);
 router.post("/", userController.createUser);
+router.get("/verify-route", verifyToken, (req, res) => {
+    res.json({ valid: true });
+});
+
 // admin
 router.post("/admin-account-creation", userController.adminAccountCreation)
 router.post("/send-verification", userController.sendVerificationCode);

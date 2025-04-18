@@ -15,6 +15,7 @@ const ServiceProviderSchema = new mongoose.Schema({
     password: { type: String, required: false },
     contactInfo: { type: String, required: false },
     country: { type: String, required: false },
+    state: { type: String, required: false },
     city: { type: String, required: false },
     postalCode: { type: String, required: false },
     verificationCode: { type: String, required: false },
@@ -47,7 +48,7 @@ const ServiceProviderSchema = new mongoose.Schema({
 ServiceProviderSchema.methods.generateAuthToken = function () {
     return jwt.sign(
         { _id: this._id, email: this.email, role: this.role },
-        process.env.JWT_SECRET,
+        process.env.PROVIDER_JWT_SECRET,
         { expiresIn: "7d" }
     );
 };
