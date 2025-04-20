@@ -10,7 +10,7 @@ const { sendOnBoardingEmailToProvider } = require("../utils/sendOnBoardEmailToPr
 // Create Service Provider Account
 exports.createServiceProviderAccount = async (req, res) => {
     try {
-        const { name, email, password, contactInfo, country, city, postalCode, selectedCategories, verificationCode } = req.body;
+        const { name, email, password, contactInfo, country, city, state, postalCode, selectedCategories, verificationCode } = req.body;
 
         const existingUser = await ServiceProvider.findOne({ email });
 
@@ -82,6 +82,7 @@ exports.createServiceProviderAccount = async (req, res) => {
                     contactInfo,
                     country,
                     city,
+                    state,
                     postalCode,
                     selectedCategories: processedCategories,
                     verificationCode: null,
@@ -92,7 +93,8 @@ exports.createServiceProviderAccount = async (req, res) => {
 
         const token = existingUser.generateAuthToken();
         await sendOnBoardingEmailToProvider(email, name)
-        res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
+        res
+            .cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
             .status(200)
             .json({ message: "Service provider registered successfully", token });
 
@@ -103,7 +105,7 @@ exports.createServiceProviderAccount = async (req, res) => {
 };
 exports.getServiceProviderDetails = async (req, res) => {
     try {
-        const provider = await ServiceProvider.findByIdd(req.user._id).select("-password");
+        const provider = await ServiceProvider.findById(req.provider._id).select("-password");
         if (!provider) {
             return res.status(404).json({ message: "Professional not found!" })
         }
@@ -319,11 +321,14 @@ exports.addMoreCategories = async (req, res) => {
         // Fetch all valid categories from the database
         const allCategories = await Category.find().lean();
 
-        // Fetch existing service provider's selected categories
+        // Fetch existing service provider
         const serviceProvider = await ServiceProvider.findById(id);
         if (!serviceProvider) {
             return res.status(404).json({ message: "Service provider not found" });
         }
+
+        // Get provider's default postal code if available
+        const defaultPostalCode = serviceProvider.postalCode || '';
 
         let existingCategories = serviceProvider.selectedCategories || [];
 
@@ -337,14 +342,28 @@ exports.addMoreCategories = async (req, res) => {
                 throw new Error(`Invalid category: ${selectedCategory.category}`);
             }
 
+            // Ensure required fields are present
+            if (!selectedCategory.postalCode) {
+                selectedCategory.postalCode = defaultPostalCode;
+            }
+            if (!selectedCategory.serviceRadius) {
+                selectedCategory.serviceRadius = 120; // Default radius
+            }
+
             let existingCategory = findCategory(selectedCategory.category);
             if (!existingCategory) {
-                // If category does not exist, add it completely
+                // If category doesn't exist, add it with all properties
                 existingCategories.push({
                     category: selectedCategory.category,
+                    postalCode: selectedCategory.postalCode,
+                    serviceRadius: selectedCategory.serviceRadius,
                     subcategories: selectedCategory.subcategories || []
                 });
             } else {
+                // Update existing category with new properties
+                existingCategory.postalCode = selectedCategory.postalCode || existingCategory.postalCode || defaultPostalCode;
+                existingCategory.serviceRadius = selectedCategory.serviceRadius || existingCategory.serviceRadius || 120;
+
                 // Merge subcategories
                 selectedCategory.subcategories.forEach(selectedSub => {
                     const subcategoryExists = categoryExists.subcategories.find(sub => sub.subcategory === selectedSub.subcategory);
@@ -354,7 +373,7 @@ exports.addMoreCategories = async (req, res) => {
 
                     let existingSubcategory = existingCategory.subcategories.find(sub => sub.subcategory === selectedSub.subcategory);
                     if (!existingSubcategory) {
-                        // If subcategory does not exist, add it
+                        // Add new subcategory
                         existingCategory.subcategories.push({
                             subcategory: selectedSub.subcategory,
                             subSubcategories: selectedSub.subSubcategories || []
@@ -362,7 +381,8 @@ exports.addMoreCategories = async (req, res) => {
                     } else {
                         // Merge sub-subcategories
                         selectedSub.subSubcategories.forEach(subSub => {
-                            if (subcategoryExists.subSubcategories.includes(subSub) && !existingSubcategory.subSubcategories.includes(subSub)) {
+                            if (subcategoryExists.subSubcategories.includes(subSub) &&
+                                !existingSubcategory.subSubcategories.includes(subSub)) {
                                 existingSubcategory.subSubcategories.push(subSub);
                             }
                         });
@@ -371,12 +391,12 @@ exports.addMoreCategories = async (req, res) => {
             }
         });
 
-        // Update the service provider with merged categories
+        // Update the service provider
         serviceProvider.selectedCategories = existingCategories;
         await serviceProvider.save();
 
         res.status(200).json({
-            message: "Selected services updated successfully",
+            message: "Services updated successfully",
             selectedCategories: serviceProvider.selectedCategories
         });
     } catch (error) {

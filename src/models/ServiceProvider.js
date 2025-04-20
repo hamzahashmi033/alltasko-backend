@@ -24,7 +24,7 @@ const ServiceProviderSchema = new mongoose.Schema({
     selectedCategories: [
         {
             category: { type: String, required: true },
-            serviceRadius: { type: Number, required: true },
+            serviceRadius: { type: Number, required: true, default: 120 },
             postalCode: { type: String, required: true },
             subcategories: [
                 {
