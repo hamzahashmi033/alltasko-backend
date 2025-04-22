@@ -7,6 +7,7 @@ const crypto = require("crypto")
 const axios = require("axios")
 const geolib = require("geolib");
 const { sendOnBoardingEmailToProvider } = require("../utils/sendOnBoardEmailToProvider");
+const { ServiceRequest } = require("../models/LeadGeneration/ServiceRequest");
 // Create Service Provider Account
 exports.createServiceProviderAccount = async (req, res) => {
     try {
@@ -768,3 +769,28 @@ async function getCoordinatesFromPostalCode(postalCode) {
         return null;
     }
 }
+
+
+// leads gene
+exports.getProviderSubSubCategories = async (req, res) => {
+    try {
+        const providerId = req.params.providerId;
+
+        const provider = await ServiceProvider.findById(providerId)
+            .select("selectedCategories");
+
+        if (!provider) {
+            return res.status(404).json({ error: "Provider not found" });
+        }
+
+        const subSubCategories = provider.selectedCategories.flatMap(category =>
+            category.subcategories.flatMap(subcategory =>
+                subcategory.subSubcategories
+            )
+        );
+
+        res.status(200).json({ subSubCategories });
+    } catch (error) {
+        res.status(500).json({ error: "Error fetching subsubcategories", message: error.message });
+    }
+};

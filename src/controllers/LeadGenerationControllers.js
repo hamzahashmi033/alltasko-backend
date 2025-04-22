@@ -5,6 +5,9 @@ const ServiceProvider = require('../models/ServiceProvider');
 const { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest } = require("../models/LeadGeneration/ServiceRequest");
 const serviceUpload = require("../middlewares/serviceUpload")
 const multer = require('multer')
+const haversine = require('haversine-distance');
+const { default: axios } = require("axios");
+
 const getServiceModel = (serviceType) => {
     switch (serviceType) {
         case 'Handyman Services': return HandymanRequest;
@@ -186,5 +189,203 @@ exports.getUserRequests = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Error retrieving user service requests.' });
+    }
+};
+
+// professional panel 
+async function getCoordinatesFromPostalCode(postalCode) {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || "YOUR_API_KEY";
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${postalCode}&key=${apiKey}`;
+
+    try {
+        const response = await axios.get(url);
+        if (response.data.results.length > 0) {
+            return response.data.results[0].geometry.location; // { lat, lng }
+        }
+        return null;
+    } catch (error) {
+        console.error("Error fetching coordinates:", error);
+        return null;
+    }
+}
+
+
+
+
+exports.getProviderSubSubCategories = async (req, res) => {
+    try {
+        const providerId = req.params.providerId;
+
+        const provider = await ServiceProvider.findById(providerId)
+            .select("selectedCategories");
+
+        if (!provider) {
+            return res.status(404).json({ error: "Provider not found" });
+        }
+
+        const subSubCategories = provider.selectedCategories.flatMap(category =>
+            category.subcategories.flatMap(subcategory =>
+                subcategory.subSubcategories
+            )
+        );
+
+        res.status(200).json({ subSubCategories });
+    } catch (error) {
+        res.status(500).json({ error: "Error fetching subsubcategories", message: error.message });
+    }
+};
+exports.getLeadCountsBySubSubCategory = async (req, res) => {
+    try {
+        const providerId = req.params.providerId;
+
+        // Get provider with selected categories
+        const provider = await ServiceProvider.findById(providerId)
+            .select("selectedCategories");
+
+        if (!provider) {
+            return res.status(404).json({ error: "Provider not found" });
+        }
+
+        // Get all pending service requests
+        const serviceRequests = await ServiceRequest.find({ status: "pending" })
+            .select("serviceTypeSubSubCategory customerDetails.zipCode");
+
+        // Get all unique postal codes involved
+        const providerPostalCodes = provider.selectedCategories.map(cat => cat.postalCode);
+        const customerZipCodes = serviceRequests.map(req => req.customerDetails.zipCode);
+        const allPostalCodes = [...new Set([...providerPostalCodes, ...customerZipCodes])];
+
+        // Get coordinates for all postal codes
+        const postalCodeCoordinates = {};
+        for (const code of allPostalCodes) {
+            const coords = await getCoordinatesFromPostalCode(code);
+            if (coords) postalCodeCoordinates[code] = coords;
+        }
+
+        // Process each subsubcategory with distance check
+        const subSubCategoryCounts = {};
+        
+        provider.selectedCategories.forEach(category => {
+            const providerCoords = postalCodeCoordinates[category.postalCode];
+            if (!providerCoords) return;
+
+            category.subcategories.forEach(subcategory => {
+                subcategory.subSubcategories.forEach(subSubCat => {
+                    if (!subSubCategoryCounts[subSubCat]) {
+                        subSubCategoryCounts[subSubCat] = 0;
+                    }
+
+                    // Count matching service requests within radius
+                    serviceRequests.forEach(request => {
+                        if (request.serviceTypeSubSubCategory === subSubCat) {
+                            const customerCoords = postalCodeCoordinates[request.customerDetails.zipCode];
+                            if (!customerCoords) return;
+
+                            const distance = haversine(
+                                { latitude: providerCoords.lat, longitude: providerCoords.lng },
+                                { latitude: customerCoords.lat, longitude: customerCoords.lng }
+                            ) / 1000; // Convert to kilometers
+
+                            if (distance <= category.serviceRadius) {
+                                subSubCategoryCounts[subSubCat]++;
+                            }
+                        }
+                    });
+                });
+            });
+        });
+
+        // Format the response
+        const leadsCount = Object.keys(subSubCategoryCounts).map(subSubCat => ({
+            subSubCategory: subSubCat,
+            count: subSubCategoryCounts[subSubCat]
+        }));
+
+        res.status(200).json({ leadsCount });
+    } catch (error) {
+        console.error("Error in getLeadCountsBySubSubCategory:", error);
+        res.status(500).json({ 
+            error: "Error fetching lead counts", 
+            message: error.message 
+        });
+    }
+};
+// 3. Get all leads matching provider's services
+exports.getAllMatchingLeads = async (req, res) => {
+    try {
+        const providerId = req.params.providerId;
+        
+        // Get provider with selected categories
+        const provider = await ServiceProvider.findById(providerId)
+            .select("selectedCategories");
+            
+        if (!provider) {
+            return res.status(404).json({ error: "Provider not found" });
+        }
+
+        // Get all pending service requests
+        const allServiceRequests = await ServiceRequest.find({
+            status: "pending"
+        }).select("serviceTypeSubSubCategory customerDetails.zipCode");
+
+        // Get all unique postal codes involved
+        const providerPostalCodes = provider.selectedCategories.map(cat => cat.postalCode);
+        const customerZipCodes = allServiceRequests.map(req => req.customerDetails.zipCode);
+        const allPostalCodes = [...new Set([...providerPostalCodes, ...customerZipCodes])];
+
+        // Get coordinates for all postal codes
+        const postalCodeCoordinates = {};
+        for (const code of allPostalCodes) {
+            const coords = await getCoordinatesFromPostalCode(code);
+            if (coords) postalCodeCoordinates[code] = coords;
+        }
+
+        // Filter service requests that match both subsubcategory and distance
+        const matchingRequestIds = [];
+        
+        provider.selectedCategories.forEach(category => {
+            const providerCoords = postalCodeCoordinates[category.postalCode];
+            if (!providerCoords) return;
+
+            category.subcategories.forEach(subcategory => {
+                subcategory.subSubcategories.forEach(subSubCat => {
+                    allServiceRequests.forEach(request => {
+                        if (request.serviceTypeSubSubCategory === subSubCat) {
+                            const customerCoords = postalCodeCoordinates[request.customerDetails.zipCode];
+                            if (!customerCoords) return;
+
+                            const distance = haversine(
+                                { latitude: providerCoords.lat, longitude: providerCoords.lng },
+                                { latitude: customerCoords.lat, longitude: customerCoords.lng }
+                            ) / 1000; // Convert to kilometers
+
+                            if (distance <= category.serviceRadius) {
+                                matchingRequestIds.push(request._id);
+                            }
+                        }
+                    });
+                });
+            });
+        });
+
+        // Remove duplicate IDs
+        const uniqueMatchingIds = [...new Set(matchingRequestIds)];
+
+        // Get full details for the matching requests (without customer details)
+        const leads = await ServiceRequest.find({
+            _id: { $in: uniqueMatchingIds }
+        })
+        .sort({ createdAt: -1 });
+
+        res.status(200).json({
+            leads,
+            count: leads.length
+        });
+    } catch (error) {
+        console.error("Error in getAllMatchingLeads:", error);
+        res.status(500).json({ 
+            error: "Error fetching leads", 
+            message: error.message 
+        });
     }
 };

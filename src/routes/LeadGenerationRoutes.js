@@ -17,4 +17,11 @@ router.put("/assignProvider/:requestId/:providerId", LeadGeneration.assignProvid
 
 router.delete("/deleteRequest/:id", LeadGeneration.deleteRequest)
 
+
+
+// professional panel
+router.get("/get-subsubcategories-of-provider/:providerId", LeadGeneration.getProviderSubSubCategories)
+router.get("/get-subsubcategories-leads-of-provider/:providerId", LeadGeneration.getLeadCountsBySubSubCategory)
+router.get("/get-all-matching-leads-of-provider/:providerId",LeadGeneration.getAllMatchingLeads)
+
 module.exports = router
