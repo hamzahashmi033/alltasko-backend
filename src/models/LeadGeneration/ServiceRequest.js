@@ -5,6 +5,22 @@ const BaseServiceSchema = new mongoose.Schema({
     serviceTypeSubCategory: { type: String, required: true },
     serviceTypeSubSubCategory: { type: String, required: true },
     status: { type: String, default: "pending", enum: ["pending", "assigned", "completed", "cancelled"] },
+    isPurchased: {
+        type: Boolean,
+        default: false
+    },
+    purchasedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ServiceProvider",
+        default: null
+    },
+    purchasedPrice: {
+        type: Number,
+        default: 0
+    },
+    purchasedDate: {
+        type: Date
+    },
     photos: [{
         type: String,
         required: false

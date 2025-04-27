@@ -6,7 +6,7 @@ const path = require("path");
 const session = require("express-session")
 const passport = require("passport")
 const FormConfiguration = require("./models/LeadGeneration/LeadFormConfiguration")
-
+const webhooksRoutes = require("./routes/webhookRoutes")
 require("dotenv").config();
 require("./config/google");
 require("./config/facebook")
@@ -17,7 +17,6 @@ const allowedOrigins = [
    "https://alltasko.com"
 ];
 // Middleware
-app.use(express.json());
 app.use(cors({
    origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
@@ -30,7 +29,8 @@ app.use(cors({
    methods: ["GET", "POST", "PUT", "DELETE"], // Allow these methods
    allowedHeaders: ["Content-Type", "Authorization"] // Allow these headers
 }));
-
+app.use("/api/stripe", webhooksRoutes)
+app.use(express.json());
 
 app.use(morgan("dev"));
 app.use(cookieParser());
@@ -49,6 +49,7 @@ app.use(passport.session())
 
 
 // Import Routes
+const paymentRoutes = require("./routes/PaymentRoutes")
 const userRoutes = require("./routes/userRoutes");
 const categoryRoutes = require("./routes/categoryRoutes")
 const serviceProviderRoutes = require("./routes/serviceProviderRoutes")
@@ -64,6 +65,7 @@ app.use("/api/category", categoryRoutes)
 app.use("/api/service-provider", serviceProviderRoutes)
 app.use("/auth", authRoutes);
 app.use("/api/leads", leadGenerationRoutes)
+app.use("/api/payments", paymentRoutes)
 // async function createCustomRequestConfig() {
 //    const serviceConfig = new FormConfiguration({
 //       serviceType: "Cleaning Services",
