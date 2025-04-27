@@ -36,4 +36,6 @@ router.put("/change-password", verifyProviderToken, ServiceProviderController.up
 router.get("/get-available-provider-by-postal-code", ServiceProviderController.getAvailableProviders)
 router.post("/forget-password-provider", ServiceProviderController.forgetPassword)
 router.post("/reset-password-provider", ServiceProviderController.resetPassword)
+
+router.get("/getProfessionalbyName/:name",ServiceProviderController.getProfessionalProfileByName)
 module.exports = router;

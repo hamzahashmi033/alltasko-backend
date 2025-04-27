@@ -794,3 +794,48 @@ exports.getProviderSubSubCategories = async (req, res) => {
         res.status(500).json({ error: "Error fetching subsubcategories", message: error.message });
     }
 };
+
+
+// @desc    Get service provider by name
+// @route   GET /api/providers/name
+// @access  Public
+exports.getProfessionalProfileByName = async (req, res) => {
+    try {
+        const { name } = req.params;
+        
+        if (!name) {
+            return res.status(400).json({
+                success: false,
+                message: "Name is required in the request body"
+            });
+        }
+
+        const provider = await ServiceProvider.findOne({ name })
+            .select("-password -resetPasswordToken -resetPasswordExpires -verificationCode")
+            .lean();
+
+        if (!provider) {
+            return res.status(404).json({
+                success: false,
+                message: "Service provider not found"
+            });
+        }
+
+        // Optionally, you might want to exclude more sensitive fields
+        const providerData = { ...provider };
+        delete providerData.__v; // Remove version key if not needed
+
+        return res.status(200).json({
+            success: true,
+            data: providerData
+        });
+
+    } catch (error) {
+        console.error("Error fetching provider by name:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
