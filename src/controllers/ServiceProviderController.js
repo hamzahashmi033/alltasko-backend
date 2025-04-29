@@ -485,7 +485,7 @@ exports.getReviews = async (req, res) => {
 
 exports.updateServiceProviderProfile = async (req, res) => {
     try {
-        const serviceProviderId = req.user._id; // Extract provider ID from token
+        const serviceProviderId = req.provider._id; // Extract provider ID from token
         const { name, about, contactInfo, postalCode } = req.body;
 
         // Check if at least one field is provided for update
