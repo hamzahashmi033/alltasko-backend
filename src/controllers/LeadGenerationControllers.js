@@ -2,7 +2,7 @@ const FormConfiguration = require("../models/LeadGeneration/LeadFormConfiguratio
 const fs = require('fs');
 const path = require('path');
 const ServiceProvider = require('../models/ServiceProvider');
-const { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest } = require("../models/LeadGeneration/ServiceRequest");
+const { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest, YardworkRequest } = require("../models/LeadGeneration/ServiceRequest");
 const serviceUpload = require("../middlewares/serviceUpload")
 const multer = require('multer')
 const haversine = require('haversine-distance');
@@ -14,6 +14,7 @@ const getServiceModel = (serviceType) => {
         case 'Moving Services': return MovingRequest;
         case 'CustomRequest': return CustomRequest;
         case 'Cleaning Services': return CleaningRequest;
+        case 'Yardwork & Outdoor Services': return YardworkRequest;
         default: return ServiceRequest;
     }
 };
@@ -323,9 +324,10 @@ exports.getAllMatchingLeads = async (req, res) => {
             return res.status(404).json({ error: "Provider not found" });
         }
 
-        // Get all pending service requests
+        // Get all pending service requests that haven't been purchased
         const allServiceRequests = await ServiceRequest.find({
-            status: "pending"
+            status: "pending",
+            isPurchased: false // Add this condition to exclude purchased leads
         }).select("serviceTypeSubSubCategory customerDetails.zipCode");
 
         // Get all unique postal codes involved
@@ -373,7 +375,8 @@ exports.getAllMatchingLeads = async (req, res) => {
 
         // Get full details for the matching requests (without customer details)
         const leads = await ServiceRequest.find({
-            _id: { $in: uniqueMatchingIds }
+            _id: { $in: uniqueMatchingIds },
+            isPurchased: false // Add this condition again for the final query
         })
         .sort({ createdAt: -1 });
 

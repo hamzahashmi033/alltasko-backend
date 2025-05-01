@@ -163,4 +163,110 @@ const CleaningRequest = ServiceRequest.discriminator('CleaningRequest', new mong
     }
 }));
 
-module.exports = { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest };
+const YardworkRequest = ServiceRequest.discriminator('YardworkRequest', new mongoose.Schema({
+    generalTaskType: {
+        type: String,
+        enum: [
+            "General maintenance",
+            "Seasonal cleanup",
+            "New installation or project",
+            "Pest or hazard control",
+            "Snow or ice removal",
+            "Other"
+        ],
+        required: true
+    },
+    propertyType: {
+        type: String,
+        enum: ["Residential", "Commercial", "Industrial", "Other"],
+        required: true
+    },
+    yardSize: {
+        type: String,
+        enum: ["Small", "Medium", "Large", "Not sure"],
+        required: true
+    },
+    accessRestrictions: {
+        type: String,
+        enum: ["None", "Gated access", "Pet on property", "Other"],
+        required: false
+    },
+    urgency: {
+        type: String,
+        enum: ["Emergency", "This week", "This month", "Just planning"],
+        required: true
+    },
+    recurringNeed: {
+        type: String,
+        enum: ["One-time", "Recurring", "Not sure"],
+        required: true
+    },
+    additionalDetails: {
+        type: String,
+        required: false
+    }
+}));
+const CabinetCountertopRequest = ServiceRequest.discriminator('CabinetCountertopRequest', new mongoose.Schema({
+    serviceType: {
+        type: String,
+        enum: [
+            "New installation",
+            "Replacement",
+            "Refinishing or resurfacing",
+            "Repair",
+            "Custom or specialty work",
+            "Commercial installation"
+        ],
+        required: true
+    },
+    serviceLocation: {
+        type: String,
+        enum: [
+            "Kitchen",
+            "Bathroom",
+            "Office or Retail Space",
+            "Pantry",
+            "Office or retail space",
+            "Restaurant or bar",
+            "Medical or laboratory",
+            "other"
+        ],
+        required: true
+    },
+    serviceFocus: {
+        type: String,
+        enum: ["Cabinets", "Countertops", "Both"],
+        required: true
+    },
+    preferredMaterial: {
+        type: String,
+        enum: [
+            "Wood",
+            "Laminate",
+            "Quartz",
+            "Granite",
+            "Marble",
+            "Butcher block",
+            "Not sure yet"
+        ],
+        required: false
+    },
+    propertyType: {
+        type: String,
+        enum: ["Residential", "Commercial", "Other"],
+        required: true
+    },
+    urgency: {
+        type: String,
+        enum: ["Immediately", "Within a week", "Within a month", "Just exploring"],
+        required: true
+    },
+    additionalDetails: {
+        type: String,
+        required: false
+    }
+}));
+
+
+
+module.exports = { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest, YardworkRequest };

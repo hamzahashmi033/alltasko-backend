@@ -66,95 +66,75 @@ app.use("/api/service-provider", serviceProviderRoutes)
 app.use("/auth", authRoutes);
 app.use("/api/leads", leadGenerationRoutes)
 app.use("/api/payments", paymentRoutes)
-// async function createCustomRequestConfig() {
-//    const serviceConfig = new FormConfiguration({
-//       serviceType: "Cleaning Services",
-//       questions: [
-//          {
-//             fieldName: "cleaningType",
-//             questionText: "What type of cleaning service do you need?",
-//             fieldType: "radio",
-//             options: [
-//                "Home Cleaning",
-//                "Office Cleaning",
-//                "Deep Cleaning",
-//                "Move-in/Move-out",
-//                "Post-Construction"
-//             ],
-//             required: true
-//          },
-//          {
-//             fieldName: "areaDescription",
-//             questionText: "Briefly describe the area that needs cleaning",
-//             fieldType: "text",
-//             required: true,
-//             placeholder: "e.g. 2 bedrooms, 1 bathroom, living area"
-//          },
-//          {
-//             fieldName: "hasSensitiveSurfaces",
-//             questionText: "Are there any surfaces or materials that need special care?",
-//             fieldType: "checkbox",
-//             options: [
-//                "Wooden flooring",
-//                "Marble or tiles",
-//                "Electronics or appliances",
-//                "Delicate furniture",
-//                "None"
-//             ],
-//             required: false
-//          },
-//          {
-//             fieldName: "cleaningFrequency",
-//             questionText: "How often would you like the service?",
-//             fieldType: "radio",
-//             options: [
-//                "One-time only",
-//                "Weekly",
-//                "Bi-weekly",
-//                "Monthly",
-//                "Not sure yet"
-//             ],
-//             required: true
-//          },
-//          {
-//             fieldName: "urgency",
-//             questionText: "How urgent is your request?",
-//             fieldType: "radio",
-//             options: [
-//                "Today",
-//                "Within 3 Days",
-//                "This Week",
-//                "Just Planning"
-//             ],
-//             required: true
-//          },
-//          {
-//             fieldName: "hasPets",
-//             questionText: "Are there any pets on the premises?",
-//             fieldType: "radio",
-//             options: [
-//                "Yes",
-//                "No"
-//             ],
-//             required: false
-//          },
-//          {
-//             fieldName: "cleaningConcerns",
-//             questionText: "Any specific concerns or cleaning instructions?",
-//             fieldType: "text",
-//             required: false,
-//             placeholder: "e.g. Focus on kitchen, avoid strong chemicals, etc."
-//          }
-//       ]
-//    }
-//    );
+async function createCustomRequestConfig() {
+   const formConfig = new FormConfiguration({
+      serviceType: "Yardwork & Outdoor Services",
+      questions: [
+         {
+            fieldName: "generalTaskType",
+            questionText: "What kind of yard service do you need?",
+            fieldType: "radio",
+            options: [
+               "General maintenance",
+               "Seasonal cleanup",
+               "New installation or project",
+               "Pest or hazard control",
+               "Snow or ice removal",
+               "Other"
+            ],
+            required: true
+         },
+         {
+            fieldName: "propertyType",
+            questionText: "What type of property is this?",
+            fieldType: "radio",
+            options: ["Residential", "Commercial", "Industrial", "Other"],
+            required: true
+         },
+         {
+            fieldName: "yardSize",
+            questionText: "How big is the outdoor area?",
+            fieldType: "radio",
+            options: ["Small", "Medium", "Large", "Not sure"],
+            required: true
+         },
+         {
+            fieldName: "accessRestrictions",
+            questionText: "Are there any access restrictions we should know about?",
+            fieldType: "radio",
+            options: ["None", "Gated access", "Pet on property", "Other"],
+            required: false
+         },
+         {
+            fieldName: "urgency",
+            questionText: "How soon do you need the service?",
+            fieldType: "radio",
+            options: ["Emergency", "This week", "This month", "Just planning"],
+            required: true
+         },
+         {
+            fieldName: "recurringNeed",
+            questionText: "Is this a one-time job or recurring service?",
+            fieldType: "radio",
+            options: ["One-time", "Recurring", "Not sure"],
+            required: true
+         },
+         {
+            fieldName: "additionalDetails",
+            questionText: "Any additional details you'd like to share?",
+            fieldType: "text",
+            required: false,
+            placeholder: "e.g., avoid back garden, be careful near flower beds, etc."
+         }
+      ]
+   });
 
-//    try {
-//       await serviceConfig.save();
-//       console.log("CustomRequest configuration saved successfully!");
-//    } catch (err) {
-//       console.error("Error saving CustomRequest configuration:", err);
-//    }
-// }
+   try {
+      await formConfig.save();
+      console.log("formConfig configuration saved successfully!");
+   } catch (err) {
+      console.error("Error saving CustomRequest configuration:", err);
+   }
+}
 // createCustomRequestConfig()
 module.exports = app;

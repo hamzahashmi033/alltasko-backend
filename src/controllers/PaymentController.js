@@ -11,8 +11,8 @@ exports.initiatePayment = async (req, res) => {
     session.startTransaction();
 
     try {
-        const { serviceRequestId,paymentMethod } = req.body;
-        const serviceProviderId = "6803f5e365b6fde8d27151fb";
+        const { serviceRequestId, paymentMethod } = req.body;
+        const serviceProviderId = req.provider._id;
 
         // 1. Verify lead is available
         const lead = await ServiceRequest.findOne({
@@ -49,7 +49,7 @@ exports.initiatePayment = async (req, res) => {
             payment_method: paymentMethod, // Test token
             customer: customer.id, // Attach customer
             confirm: true,
-            return_url: 'https://miloadydesigns.com', // Your success page
+            return_url: process.env.FRONTEND_URL + "/leads", // Your success page
             metadata: {
                 serviceRequestId: serviceRequestId.toString(),
                 serviceProviderId: serviceProviderId.toString()
@@ -133,8 +133,10 @@ exports.initiatePayment = async (req, res) => {
 // Handle Stripe webhook events
 exports.handleWebhook = async (req, res) => {
     const sig = req.headers['stripe-signature'];
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    
     let event;
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+
     try {
         event = stripe.webhooks.constructEvent(
             req.body,
@@ -142,7 +144,7 @@ exports.handleWebhook = async (req, res) => {
             process.env.STRIPE_WEBHOOK_SECRET
         );
     } catch (err) {
-        console.error('Webhook error:', err);
+        console.error('Webhook signature verification failed:', err);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
@@ -157,6 +159,9 @@ exports.handleWebhook = async (req, res) => {
             case 'invoice.payment_failed':
                 await handleInvoicePaymentFailed(event.data.object);
                 break;
+            case 'invoice.finalized':
+                await handleInvoiceFinalized(event.data.object);
+                break;
             default:
                 console.log(`Unhandled event type ${event.type}`);
         }
@@ -167,6 +172,21 @@ exports.handleWebhook = async (req, res) => {
         res.status(500).json({ error: 'Webhook processing failed' });
     }
 };
+
+// Add this new handler function
+async function handleInvoiceFinalized(invoice) {
+    console.log('Invoice finalized:', invoice.id);
+    
+    // Update your database with the invoice status
+    await Payment.findOneAndUpdate(
+        { stripeInvoiceId: invoice.id },
+        { 
+            invoiceStatus: 'finalized',
+            stripeInvoiceUrl: invoice.hosted_invoice_url,
+            stripeInvoicePdfUrl: invoice.invoice_pdf
+        }
+    );
+}
 
 async function handlePaymentIntentSucceeded(paymentIntent) {
     // Update payment status if needed

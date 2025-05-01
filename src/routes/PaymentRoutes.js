@@ -3,7 +3,7 @@ const router = express.Router()
 const paymentController = require("../controllers/PaymentController")
 const { verifyToken, verifyProviderToken } = require("../middlewares/verifyTokens.js");
 
-router.post("/initiate",paymentController.initiatePayment)
+router.post("/initiate",verifyProviderToken,paymentController.initiatePayment)
 
 
 // Get all provider payments
