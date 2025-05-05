@@ -14,7 +14,7 @@ exports.initiatePayment = async (req, res) => {
         const { serviceRequestId, paymentMethod } = req.body;
         const serviceProviderId = req.provider._id;
 
-        // 1. Verify lead is available
+        // 1. Verify lead availability
         const lead = await ServiceRequest.findOne({
             _id: serviceRequestId,
             isPurchased: false
@@ -22,60 +22,42 @@ exports.initiatePayment = async (req, res) => {
 
         if (!lead) {
             await session.abortTransaction();
-            return res.status(400).json({ error: 'Lead not available or already purchased' });
+            return res.status(400).json({ error: 'Lead not available' });
         }
 
-        // 2. Get provider details
+        // 2. Get provider (with Stripe customer)
         const provider = await ServiceProvider.findById(serviceProviderId).session(session);
         if (!provider) {
             await session.abortTransaction();
-            return res.status(400).json({ error: 'Professional not found' });
+            return res.status(404).json({ error: 'Professional not found' });
         }
 
-        // 3. Create customer in Stripe
-        const customer = await stripe.customers.create({
-            email: provider.email,
-            name: provider.name,
-            metadata: {
-                providerId: provider._id.toString(),
-                serviceRequestId: serviceRequestId.toString()
-            }
-        });
+        // 3. Ensure provider has a Stripe customer ID
+        if (!provider.stripeCustomerId) {
+            const customer = await stripe.customers.create({
+                email: provider.email,
+                name: provider.name,
+                metadata: { providerId: provider._id.toString() }
+            });
+            provider.stripeCustomerId = customer.id;
+            await provider.save({ session });
+        }
 
-        // 4. Create PaymentIntent
+        // 4. Create and confirm PaymentIntent
         const paymentIntent = await stripe.paymentIntents.create({
-            amount: 15 * 100,
+            amount: 15 * 100, // $15 in cents
             currency: 'usd',
-            payment_method: paymentMethod, // Test token
-            customer: customer.id, // Attach customer
+            customer: provider.stripeCustomerId,
+            payment_method: paymentMethod,
             confirm: true,
-            return_url: process.env.FRONTEND_URL + "/leads", // Your success page
             metadata: {
                 serviceRequestId: serviceRequestId.toString(),
                 serviceProviderId: serviceProviderId.toString()
             },
-            description: `Lead purchase for ${lead.serviceType}`
+            description: `Lead purchase for ${lead.serviceType}`,
         });
 
-        // 5. Create invoice
-        const invoice = await stripe.invoices.create({
-            customer: customer.id, // Use customer.id not stripeCustomerId
-            collection_method: 'charge_automatically',
-            auto_advance: true,
-            metadata: paymentIntent.metadata
-        });
-
-        await stripe.invoiceItems.create({
-            customer: customer.id, // Use customer.id here
-            invoice: invoice.id,
-            amount: paymentIntent.amount,
-            currency: paymentIntent.currency,
-            description: `Lead purchase - ${lead.serviceType}`
-        });
-
-        const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
-
-        // 6. Create payment record
+        // 5. Create minimal payment record (webhook will update later)
         const payment = new Payment({
             serviceProvider: serviceProviderId,
             serviceRequest: serviceRequestId,
@@ -83,48 +65,25 @@ exports.initiatePayment = async (req, res) => {
             currency: paymentIntent.currency,
             paymentMethod: paymentMethod,
             stripePaymentIntentId: paymentIntent.id,
-            stripeInvoiceId: finalizedInvoice.id,
-            stripeInvoiceUrl: finalizedInvoice.hosted_invoice_url,
-            stripeInvoicePdfUrl: finalizedInvoice.invoice_pdf,
-            stripeCustomerId: customer.id // Store customer ID for future reference
+            paymentStatus: 'pending', // Webhook will update to 'completed'
+            stripeCustomerId: provider.stripeCustomerId
         });
 
         await payment.save({ session });
-
-        // 7. Update provider with stripeCustomerId if needed
-        if (!provider.stripeCustomerId) {
-            provider.stripeCustomerId = customer.id;
-            await provider.save({ session });
-        }
-
-        // 8. Mark lead as purchased
-        await ServiceRequest.findByIdAndUpdate(
-            serviceRequestId,
-            {
-                isPurchased: true,
-                purchasedBy: serviceProviderId,
-                purchasePrice: paymentIntent.amount,
-                purchaseDate: new Date(),
-                status: 'assigned'
-            },
-            { session }
-        );
-
         await session.commitTransaction();
 
         res.status(201).json({
             success: true,
-            payment,
-            invoice: finalizedInvoice,
-            clientSecret: paymentIntent.client_secret
+            clientSecret: paymentIntent.client_secret, // For frontend confirmation
+            paymentId: payment._id
         });
 
     } catch (error) {
         await session.abortTransaction();
-        console.error('Payment initiation error:', error);
+        console.error('Payment error:', error);
         res.status(500).json({
-            error: 'Payment processing failed',
-            details: error.message
+            error: error.message || 'Payment failed',
+            details: error.type === 'StripeCardError' ? 'Card declined' : undefined
         });
     } finally {
         session.endSession();
@@ -133,89 +92,78 @@ exports.initiatePayment = async (req, res) => {
 // Handle Stripe webhook events
 exports.handleWebhook = async (req, res) => {
     const sig = req.headers['stripe-signature'];
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     
     let event;
 
     try {
-        event = stripe.webhooks.constructEvent(
+        event = Stripe.webhooks.constructEvent(
             req.body,
             sig,
             process.env.STRIPE_WEBHOOK_SECRET
         );
     } catch (err) {
-        console.error('Webhook signature verification failed:', err);
+        console.error('❌ Webhook signature verification failed:', err);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     try {
         switch (event.type) {
             case 'payment_intent.succeeded':
-                await handlePaymentIntentSucceeded(event.data.object);
+                await handlePaymentSuccess(event.data.object);
                 break;
-            case 'invoice.paid':
-                await handleInvoicePaid(event.data.object);
-                break;
-            case 'invoice.payment_failed':
-                await handleInvoicePaymentFailed(event.data.object);
-                break;
-            case 'invoice.finalized':
-                await handleInvoiceFinalized(event.data.object);
+            case 'payment_intent.payment_failed':
+                await handlePaymentFailure(event.data.object);
                 break;
             default:
-                console.log(`Unhandled event type ${event.type}`);
+                console.log(`🔔 Unhandled event type: ${event.type}`);
         }
 
         res.json({ received: true });
     } catch (error) {
-        console.error('Webhook processing error:', error);
+        console.error('❌ Webhook processing error:', error);
         res.status(500).json({ error: 'Webhook processing failed' });
     }
 };
 
-// Add this new handler function
-async function handleInvoiceFinalized(invoice) {
-    console.log('Invoice finalized:', invoice.id);
+// ===== Payment Success Handler =====
+async function handlePaymentSuccess(paymentIntent) {
+    console.log('💰 Payment succeeded:', paymentIntent.id);
     
-    // Update your database with the invoice status
-    await Payment.findOneAndUpdate(
-        { stripeInvoiceId: invoice.id },
-        { 
-            invoiceStatus: 'finalized',
-            stripeInvoiceUrl: invoice.hosted_invoice_url,
-            stripeInvoicePdfUrl: invoice.invoice_pdf
-        }
-    );
-}
+    const updateData = {
+        paymentStatus: 'completed',
+        stripePaymentIntentId: paymentIntent.id,
+        amount: paymentIntent.amount, 
+        currency: paymentIntent.currency,
+        paymentMethod: paymentIntent.payment_method_types?.[0] || 'card',
+        stripeInvoiceStatus: paymentIntent.invoice ? 'paid' : undefined,
+    };
 
-async function handlePaymentIntentSucceeded(paymentIntent) {
-    // Update payment status if needed
     await Payment.findOneAndUpdate(
         { stripePaymentIntentId: paymentIntent.id },
-        { paymentStatus: 'completed' }
+        updateData,
+        { new: true, upsert: false } // Don't create new record if not found
     );
+
 }
 
-async function handleInvoicePaid(invoice) {
+// ===== Payment Failure Handler =====
+async function handlePaymentFailure(paymentIntent) {
+    console.log('❌ Payment failed:', paymentIntent.id);
+    
+    const updateData = {
+        paymentStatus: 'failed',
+        failureReason: paymentIntent.last_payment_error?.message || 'Payment failed',
+        serviceStatus: 'pending', // Reset service status
+    };
+
     await Payment.findOneAndUpdate(
-        { stripeInvoiceId: invoice.id },
-        {
-            stripeInvoiceStatus: invoice.status,
-            paymentStatus: 'completed'
-        }
+        { stripePaymentIntentId: paymentIntent.id },
+        updateData,
+        { new: true }
     );
-}
 
-async function handleInvoicePaymentFailed(invoice) {
-    await Payment.findOneAndUpdate(
-        { stripeInvoiceId: invoice.id },
-        {
-            stripeInvoiceStatus: invoice.status,
-            paymentStatus: 'failed'
-        }
-    );
+    // Optional: Notify user to retry payment
 }
-
 // Get all payments for a provider
 exports.getProviderPayments = async (req, res) => {
     try {
