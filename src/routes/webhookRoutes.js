@@ -3,7 +3,7 @@ const router = express.Router()
 const paymentController = require("../controllers/PaymentController")
 
 router.post("/webhooks",
-    express.raw({ type: "application/json" }), // Crucial for signature verification
+    express.raw({ type: "application/json" }), 
     paymentController.handleWebhook
 );
 

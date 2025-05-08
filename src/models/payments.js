@@ -13,6 +13,10 @@ const PaymentSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    stripeCheckoutSessionId: {
+        type: String,
+        required: true
+    },
     amount: {
         type: Number,
         required: true
@@ -22,7 +26,7 @@ const PaymentSchema = new mongoose.Schema({
         default: "usd",
         required: true
     },
-    
+
     // Payment processing info
     paymentMethod: {
         type: String,
@@ -33,7 +37,7 @@ const PaymentSchema = new mongoose.Schema({
         enum: ["pending", "completed", "failed", "refunded", "partially_refunded"],
         default: "pending"
     },
-    
+
     // Stripe-specific fields
     stripePaymentIntentId: String,
     stripeInvoiceId: String,
@@ -45,7 +49,7 @@ const PaymentSchema = new mongoose.Schema({
         enum: ["draft", "open", "paid", "void", "uncollectible"]
     },
     stripeInvoiceMetadata: mongoose.Schema.Types.Mixed,
-    
+
     // Invoice details
     invoiceDetails: {
         invoiceNumber: String,
@@ -68,9 +72,10 @@ const PaymentSchema = new mongoose.Schema({
         discountAmount: Number,
         total: Number,
         notes: String,
-        terms: String
+        terms: String,
+        stripeCustomerId: String
     },
-    
+
     // Refund information
     refunds: [{
         amount: Number,
@@ -82,14 +87,14 @@ const PaymentSchema = new mongoose.Schema({
         stripeRefundId: String,
         status: String
     }],
-    
+
     // Service tracking
     serviceStatus: {
         type: String,
         enum: ["pending", "in_progress", "completed", "cancelled"],
         default: "pending"
     },
-    
+
     // Timestamps
     purchasedAt: {
         type: Date,
@@ -110,7 +115,7 @@ PaymentSchema.index({ stripeInvoiceId: 1 });
 PaymentSchema.index({ "invoiceDetails.invoiceNumber": 1 });
 
 // Virtual for formatted amount
-PaymentSchema.virtual("formattedAmount").get(function() {
+PaymentSchema.virtual("formattedAmount").get(function () {
     return `${this.currency.toUpperCase()} ${(this.amount / 100).toFixed(2)}`;
 });
 

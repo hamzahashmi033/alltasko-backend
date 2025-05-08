@@ -11,8 +11,14 @@ exports.initiatePayment = async (req, res) => {
     session.startTransaction();
 
     try {
-        const { serviceRequestId, paymentMethod } = req.body;
+        const { serviceRequestId } = req.body;
         const serviceProviderId = req.provider._id;
+
+        // Validate inputs
+        if (!serviceRequestId || !serviceProviderId) {
+            await session.abortTransaction();
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
 
         // 1. Verify lead availability
         const lead = await ServiceRequest.findOne({
@@ -22,10 +28,10 @@ exports.initiatePayment = async (req, res) => {
 
         if (!lead) {
             await session.abortTransaction();
-            return res.status(400).json({ error: 'Lead not available' });
+            return res.status(400).json({ error: 'Lead not available or already purchased' });
         }
 
-        // 2. Get provider (with Stripe customer)
+        // 2. Get provider
         const provider = await ServiceProvider.findById(serviceProviderId).session(session);
         if (!provider) {
             await session.abortTransaction();
@@ -37,36 +43,61 @@ exports.initiatePayment = async (req, res) => {
             const customer = await stripe.customers.create({
                 email: provider.email,
                 name: provider.name,
-                metadata: { providerId: provider._id.toString() }
+                phone: provider.phone,
+                metadata: {
+                    providerId: provider._id.toString(),
+                    accountType: 'service-provider'
+                }
             });
             provider.stripeCustomerId = customer.id;
             await provider.save({ session });
         }
 
-        // 4. Create and confirm PaymentIntent
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: 15 * 100, // $15 in cents
-            currency: 'usd',
+        // 4. Create Checkout Session with enhanced metadata
+        const checkoutSession = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [{
+                price_data: {
+                    currency: 'usd',
+                    product_data: {
+                        name: `Lead purchase: ${lead.serviceType}`,
+                        description: `Lead ID: ${lead._id.toString()}`
+                    },
+                    unit_amount: 15 * 100, // $15 in cents
+                },
+                quantity: 1,
+            }],
+            mode: 'payment',
             customer: provider.stripeCustomerId,
-            payment_method: paymentMethod,
-            confirm: true,
+            success_url: `${process.env.FRONTEND_URL}/payments/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.FRONTEND_URL}/payments/canceled?session_id={CHECKOUT_SESSION_ID}`,
             metadata: {
                 serviceRequestId: serviceRequestId.toString(),
-                serviceProviderId: serviceProviderId.toString()
+                serviceProviderId: serviceProviderId.toString(),
+                leadType: lead.serviceType,
+                purchaseType: 'lead'
             },
-            description: `Lead purchase for ${lead.serviceType}`,
+            payment_intent_data: {
+                metadata: {
+                    serviceRequestId: serviceRequestId.toString(),
+                    serviceProviderId: serviceProviderId.toString()
+                }
+            },
+            expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutes from now
+            allow_promotion_codes: true
         });
 
-        // 5. Create minimal payment record (webhook will update later)
+        // 5. Create payment record
         const payment = new Payment({
             serviceProvider: serviceProviderId,
             serviceRequest: serviceRequestId,
-            amount: paymentIntent.amount,
-            currency: paymentIntent.currency,
-            paymentMethod: paymentMethod,
-            stripePaymentIntentId: paymentIntent.id,
-            paymentStatus: 'pending', // Webhook will update to 'completed'
-            stripeCustomerId: provider.stripeCustomerId
+            amount: 1500,
+            currency: 'usd',
+            stripeCheckoutSessionId: checkoutSession.id,
+            paymentStatus: 'pending',
+            stripeCustomerId: provider.stripeCustomerId,
+            paymentMethod: 'card',
+
         });
 
         await payment.save({ session });
@@ -74,16 +105,34 @@ exports.initiatePayment = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            clientSecret: paymentIntent.client_secret, // For frontend confirmation
-            paymentId: payment._id
+            sessionId: checkoutSession.id,
+            paymentId: payment._id,
+            url: checkoutSession.url
         });
 
     } catch (error) {
         await session.abortTransaction();
-        console.error('Payment error:', error);
+
+        console.error('Payment initiation error:', {
+            error: error.message,
+            stack: error.stack,
+            type: error.type,
+            timestamp: new Date().toISOString()
+        });
+
+        // Handle specific Stripe errors
+        if (error.type === 'StripeInvalidRequestError') {
+            return res.status(400).json({
+                error: 'Payment configuration issue',
+                details: 'Please contact support',
+                code: 'STRIPE_CONFIG_ERROR'
+            });
+        }
+
         res.status(500).json({
-            error: error.message || 'Payment failed',
-            details: error.type === 'StripeCardError' ? 'Card declined' : undefined
+            error: 'Payment processing failed',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            code: 'PAYMENT_PROCESSING_ERROR'
         });
     } finally {
         session.endSession();
@@ -92,95 +141,115 @@ exports.initiatePayment = async (req, res) => {
 // Handle Stripe webhook events
 exports.handleWebhook = async (req, res) => {
     const sig = req.headers['stripe-signature'];
-    
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Initialize Stripe
+
     let event;
+    let rawBody = req.body;
 
     try {
-        event = Stripe.webhooks.constructEvent(
-            req.body,
-            sig,
-            process.env.STRIPE_WEBHOOK_SECRET
-        );
+        event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+        console.log(`✅ Webhook verified: ${event.type}`);
     } catch (err) {
-        console.error('❌ Webhook signature verification failed:', err);
+        console.error('❌ Webhook verification failed:', err);
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
     try {
         switch (event.type) {
-            case 'payment_intent.succeeded':
-                await handlePaymentSuccess(event.data.object);
+            case 'checkout.session.completed':
+                const checkoutSession = event.data.object;
+
+                if (checkoutSession.payment_status !== 'paid') {
+                    throw new Error(`Session not paid: ${checkoutSession.id}`);
+                }
+
+                // Get payment details directly from session
+                const amountPaid = checkoutSession.amount_total; // in cents
+
+                // 1. Update payment record
+                const updatedPayment = await Payment.findOneAndUpdate(
+                    { stripeCheckoutSessionId: checkoutSession.id },
+                    {
+                        paymentStatus: 'completed',
+                        completedAt: new Date(),
+                        amount: amountPaid,
+                        'invoiceDetails.paidAt': new Date(),
+                        'invoiceDetails.total': amountPaid,
+                        'stripeInvoiceStatus': 'paid',
+                        $push: {
+                            'invoiceDetails.items': {
+                                description: `Lead purchase for ${checkoutSession.metadata.serviceRequestId}`,
+                                amount: amountPaid,
+                                quantity: 1
+                            }
+                        }
+                    },
+                    { session, new: true }
+                );
+
+                if (!updatedPayment) {
+                    throw new Error('Payment record not found');
+                }
+
+                // 2. Update lead record only (no provider updates)
+                const updatedLead = await ServiceRequest.findByIdAndUpdate(
+                    checkoutSession.metadata.serviceRequestId,
+                    {
+                        $set: {
+                            isPurchased: true,
+                            purchasedBy: checkoutSession.metadata.serviceProviderId,
+                            purchasedPrice: amountPaid / 100,
+                            purchasedDate: new Date(),
+                            status: 'assigned'
+                        }
+                        // Removed $addToSet for serviceProvider since we're not updating provider
+                    },
+                    { session, new: true }
+                );
+
+                if (!updatedLead) {
+                    throw new Error('Lead not found');
+                }
+
+                console.log('🔄 Updated records:', {
+                    paymentId: updatedPayment._id,
+                    leadId: updatedLead._id
+                });
                 break;
-            case 'payment_intent.payment_failed':
-                await handlePaymentFailure(event.data.object);
-                break;
-            default:
-                console.log(`🔔 Unhandled event type: ${event.type}`);
         }
 
+        await session.commitTransaction();
         res.json({ received: true });
-    } catch (error) {
-        console.error('❌ Webhook processing error:', error);
-        res.status(500).json({ error: 'Webhook processing failed' });
+    } catch (err) {
+        await session.abortTransaction();
+
+        res.status(500).json({
+            error: 'Webhook processing failed',
+            details: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
+    } finally {
+        session.endSession();
     }
 };
 
-// ===== Payment Success Handler =====
-async function handlePaymentSuccess(paymentIntent) {
-    console.log('💰 Payment succeeded:', paymentIntent.id);
-    
-    const updateData = {
-        paymentStatus: 'completed',
-        stripePaymentIntentId: paymentIntent.id,
-        amount: paymentIntent.amount, 
-        currency: paymentIntent.currency,
-        paymentMethod: paymentIntent.payment_method_types?.[0] || 'card',
-        stripeInvoiceStatus: paymentIntent.invoice ? 'paid' : undefined,
-    };
-
-    await Payment.findOneAndUpdate(
-        { stripePaymentIntentId: paymentIntent.id },
-        updateData,
-        { new: true, upsert: false } // Don't create new record if not found
-    );
-
-}
-
-// ===== Payment Failure Handler =====
-async function handlePaymentFailure(paymentIntent) {
-    console.log('❌ Payment failed:', paymentIntent.id);
-    
-    const updateData = {
-        paymentStatus: 'failed',
-        failureReason: paymentIntent.last_payment_error?.message || 'Payment failed',
-        serviceStatus: 'pending', // Reset service status
-    };
-
-    await Payment.findOneAndUpdate(
-        { stripePaymentIntentId: paymentIntent.id },
-        updateData,
-        { new: true }
-    );
-
-    // Optional: Notify user to retry payment
-}
 // Get all payments for a provider
 exports.getProviderPayments = async (req, res) => {
     try {
         const { status } = req.query;
         const query = { serviceProvider: req.provider._id };
-
-        if (status) {
-            query.paymentStatus = status;
+        const serviceProvider = req.provider._id;
+        const result = await Payment.find({ serviceProvider }).populate("serviceRequest")
+        if (!result) {
+            res.status(404).json({ error: 'Purchased lead history is not available' });
         }
 
-        const payments = await Payment.find(query)
-            .populate('serviceRequest')
-            .sort({ createdAt: -1 });
 
-        res.json({ success: true, payments });
+        res.json({ success: true, result });
     } catch (error) {
-        console.error('Error fetching payments:', error);
         res.status(500).json({ error: 'Failed to fetch payments' });
     }
 };
@@ -207,7 +276,7 @@ exports.getPaymentDetails = async (req, res) => {
         let stripeInvoice = null;
         if (payment.stripeInvoiceId) {
             try {
-                stripeInvoice = await stripe.invoices.retrieve(payment.stripeInvoiceId);
+                stripeInvoice = await Stripe.invoices.retrieve(payment.stripeInvoiceId);
             } catch (error) {
                 console.error('Error fetching Stripe invoice:', error);
             }

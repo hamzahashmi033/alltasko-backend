@@ -41,6 +41,7 @@ const ServiceProviderSchema = new mongoose.Schema({
     resaonOfHold: { type: String, default: null },
     onHold: { type: Boolean, default: false },
     reviews: [ReviewSchema],
+    stripeCustomerId: { type: String },
     resetPasswordToken: { type: String, default: null },
     resetPasswordExpires: { type: Date, default: null },
 });
