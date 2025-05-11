@@ -66,6 +66,8 @@ app.use("/api/service-provider", serviceProviderRoutes)
 app.use("/auth", authRoutes);
 app.use("/api/leads", leadGenerationRoutes)
 app.use("/api/payments", paymentRoutes)
+app.use('/api/conversations', require('./routes/conversationRoutes'));
+app.use('/api/messages', require('./routes/messagesRoutes'));
 async function createCustomRequestConfig() {
    const formConfig = new FormConfiguration({
       serviceType: "Yardwork & Outdoor Services",

@@ -8,6 +8,8 @@ const axios = require("axios")
 const geolib = require("geolib");
 const { sendOnBoardingEmailToProvider } = require("../utils/sendOnBoardEmailToProvider");
 const { ServiceRequest } = require("../models/LeadGeneration/ServiceRequest");
+const path = require('path');
+const fs = require('fs');
 // Create Service Provider Account
 exports.createServiceProviderAccount = async (req, res) => {
     try {
@@ -802,7 +804,7 @@ exports.getProviderSubSubCategories = async (req, res) => {
 exports.getProfessionalProfileByName = async (req, res) => {
     try {
         const { name } = req.params;
-        
+
         if (!name) {
             return res.status(400).json({
                 success: false,
@@ -836,6 +838,47 @@ exports.getProfessionalProfileByName = async (req, res) => {
             success: false,
             message: "Internal server error",
             error: error.message
+        });
+    }
+};
+
+
+exports.uploadProfilePicture = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'No file uploaded'
+            });
+        }
+
+        // Construct the file path to save in database
+        const filePath = `/uploads/profilepictures/${req.file.filename}`;
+
+        // If you need to delete the previous profile picture
+        if (req.provider.profilePicture) {
+            const oldFilePath = path.join(__dirname, '../../', req.user.profilePicture);
+            fs.unlinkSync(oldFilePath);
+        }
+
+        // Here you would typically save the filePath to your database
+        await ServiceProvider.findByIdAndUpdate(req.provider._id, { profilePicture: filePath });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Profile picture uploaded successfully',
+            data: {
+                fileName: req.file.filename,
+                filePath: filePath,
+                fileType: req.file.mimetype,
+                fileSize: req.file.size
+            }
+        });
+    } catch (error) {
+        console.error('Error uploading profile picture:', error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to upload profile picture'
         });
     }
 };

@@ -3,7 +3,8 @@ const router = express.Router();
 const ServiceProviderController = require("../controllers/ServiceProviderController.js");
 const { protectedAdmin } = require("../middlewares/protectedAdmin.js");
 const { verifyToken, verifyProviderToken } = require("../middlewares/verifyTokens.js");
-const upload = require("../middlewares/multer.js")
+const upload = require("../middlewares/multer.js");
+const uploadProfilePicture = require("../middlewares/serviceProviderImage.js");
 router.get("/verify-route", verifyProviderToken, (req, res) => {
     res.json({ valid: true });
 });
@@ -37,5 +38,12 @@ router.get("/get-available-provider-by-postal-code", ServiceProviderController.g
 router.post("/forget-password-provider", ServiceProviderController.forgetPassword)
 router.post("/reset-password-provider", ServiceProviderController.resetPassword)
 
-router.get("/getProfessionalbyName/:name",ServiceProviderController.getProfessionalProfileByName)
+router.get("/getProfessionalbyName/:name", ServiceProviderController.getProfessionalProfileByName)
+
+router.post(
+    '/upload-profile', verifyProviderToken,
+    uploadProfilePicture.single('profilePicture'),
+    ServiceProviderController.uploadProfilePicture
+);
+
 module.exports = router;
