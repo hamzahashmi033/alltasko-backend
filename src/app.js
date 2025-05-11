@@ -14,7 +14,8 @@ const app = express();
 const allowedOrigins = [
    "http://localhost:3000",
    "https://alltasko.technovativelab.com",
-   "https://alltasko.com"
+   "https://alltasko.com",
+   "https://staging.alltasko.com"
 ];
 // Middleware
 app.use(cors({
