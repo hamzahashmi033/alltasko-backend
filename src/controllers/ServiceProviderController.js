@@ -97,7 +97,14 @@ exports.createServiceProviderAccount = async (req, res) => {
         const token = existingUser.generateAuthToken();
         await sendOnBoardingEmailToProvider(email, name)
         res
-            .cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
+            .cookie("token", token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'None',
+                domain: '.alltasko.com', // Enables cross-subdomain sharing
+                path: '/',
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            })
             .status(200)
             .json({ message: "Service provider registered successfully", token });
 
@@ -129,7 +136,15 @@ exports.loginServiceProvider = async (req, res) => {
         if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
         const token = serviceProvider.generateAuthToken();
-        res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            domain: '.alltasko.com', // Enables cross-subdomain sharing
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
 
         res.status(200).json({ message: "Login successful", token });
     } catch (error) {
