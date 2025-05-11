@@ -8,7 +8,7 @@ passport.use(
         {
             clientID: process.env.FACEBOOK_CLIENT_ID,
             clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
-            callbackURL: "http://localhost:5000/auth/facebook/callback",
+            callbackURL: "http://api.alltasko.com/auth/facebook/callback",
             profileFields: ["id", "displayName", "emails", "picture.type(large)"],
         },
         async (accessToken, refreshToken, profile, done) => {
