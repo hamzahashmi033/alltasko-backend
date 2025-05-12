@@ -23,8 +23,14 @@ router.get(
         );
 
         // Send token as cookie or JSON response
-        res.cookie("token", token, { httpOnly: true });
-        res.redirect(process.env.FRONTEND_URL); // Redirect to frontend/dashboard
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            domain: '.alltasko.com',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        }).redirect(process.env.FRONTEND_URL); 
     }
 );
 // Facebook Callback Route
@@ -52,7 +58,7 @@ router.get(
                 path: '/',
                 maxAge: 7 * 24 * 60 * 60 * 1000
             })
-            res.redirect("/"); // Make sure to redirect to home after success
+                .redirect("/"); // Make sure to redirect to home after success
         } catch (error) {
             console.error("Error generating JWT token:", error);
             res.redirect("/login"); // Send user to login in case of failure
