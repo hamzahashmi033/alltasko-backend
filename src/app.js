@@ -35,7 +35,11 @@ app.use(express.json());
 
 app.use(morgan("dev"));
 app.use(cookieParser());
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+const uploadDir = process.env.NODE_ENV === "production"
+   ? "/app/uploads"
+   : path.join(__dirname, "../uploads");
+
+app.use("/uploads", express.static(uploadDir));
 app.use(session({
    secret: "dsdsddsfsdfdsfsdsdfsdf",
    resave: false,
@@ -69,75 +73,6 @@ app.use("/api/leads", leadGenerationRoutes)
 app.use("/api/payments", paymentRoutes)
 app.use('/api/conversations', require('./routes/conversationRoutes'));
 app.use('/api/messages', require('./routes/messagesRoutes'));
-async function createCustomRequestConfig() {
-   const formConfig = new FormConfiguration({
-      serviceType: "Yardwork & Outdoor Services",
-      questions: [
-         {
-            fieldName: "generalTaskType",
-            questionText: "What kind of yard service do you need?",
-            fieldType: "radio",
-            options: [
-               "General maintenance",
-               "Seasonal cleanup",
-               "New installation or project",
-               "Pest or hazard control",
-               "Snow or ice removal",
-               "Other"
-            ],
-            required: true
-         },
-         {
-            fieldName: "propertyType",
-            questionText: "What type of property is this?",
-            fieldType: "radio",
-            options: ["Residential", "Commercial", "Industrial", "Other"],
-            required: true
-         },
-         {
-            fieldName: "yardSize",
-            questionText: "How big is the outdoor area?",
-            fieldType: "radio",
-            options: ["Small", "Medium", "Large", "Not sure"],
-            required: true
-         },
-         {
-            fieldName: "accessRestrictions",
-            questionText: "Are there any access restrictions we should know about?",
-            fieldType: "radio",
-            options: ["None", "Gated access", "Pet on property", "Other"],
-            required: false
-         },
-         {
-            fieldName: "urgency",
-            questionText: "How soon do you need the service?",
-            fieldType: "radio",
-            options: ["Emergency", "This week", "This month", "Just planning"],
-            required: true
-         },
-         {
-            fieldName: "recurringNeed",
-            questionText: "Is this a one-time job or recurring service?",
-            fieldType: "radio",
-            options: ["One-time", "Recurring", "Not sure"],
-            required: true
-         },
-         {
-            fieldName: "additionalDetails",
-            questionText: "Any additional details you'd like to share?",
-            fieldType: "text",
-            required: false,
-            placeholder: "e.g., avoid back garden, be careful near flower beds, etc."
-         }
-      ]
-   });
 
-   try {
-      await formConfig.save();
-      console.log("formConfig configuration saved successfully!");
-   } catch (err) {
-      console.error("Error saving CustomRequest configuration:", err);
-   }
-}
-// createCustomRequestConfig()
+
 module.exports = app;
