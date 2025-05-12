@@ -166,7 +166,7 @@ exports.loginUser = async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
-    res.status(200).json({ message: "Login successful", token });
+    res.status(200).json({ message: "Login successful", token, user });
   } catch (error) {
     res.status(500).json({ error: "Error logging in", message: error.message });
   }
@@ -301,5 +301,5 @@ exports.resetPassword = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
-  
+
 }
