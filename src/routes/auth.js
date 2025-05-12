@@ -48,7 +48,7 @@ router.get(
                 httpOnly: true,
                 secure: true,
                 sameSite: 'None',
-                domain: '.alltasko.com', 
+                domain: '.alltasko.com',
                 path: '/',
                 maxAge: 7 * 24 * 60 * 60 * 1000
             })
@@ -63,7 +63,13 @@ router.get(
 // Logout Route
 router.get("/logout", (req, res) => {
     req.logout(() => {
-        res.clearCookie("token");
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            domain: '.alltasko.com',
+            path: '/'
+        });
         res.redirect("/");
     });
 });
