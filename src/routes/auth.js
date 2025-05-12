@@ -32,7 +32,7 @@ router.get(
     "/facebook/callback",
     passport.authenticate("facebook", {
         successRedirect: process.env.FRONTEND_URL, // Redirect on success
-        failureRedirect: `${API}/login`, // Redirect on failure
+        failureRedirect: `${process.env.FRONTEND_URL}/login`, // Redirect on failure
     }),
     (req, res) => {
         try {
