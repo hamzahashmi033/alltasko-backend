@@ -24,15 +24,15 @@ router.get(
 
         // Send token as cookie or JSON response
         res.cookie("token", token, { httpOnly: true });
-        res.redirect("http://localhost:3000/"); // Redirect to frontend/dashboard
+        res.redirect(process.env.FRONTEND_URL); // Redirect to frontend/dashboard
     }
 );
 // Facebook Callback Route
 router.get(
     "/facebook/callback",
     passport.authenticate("facebook", {
-        successRedirect: "http://localhost:3000/", // Redirect on success
-        failureRedirect: "http://localhost:3000/login", // Redirect on failure
+        successRedirect: process.env.FRONTEND_URL, // Redirect on success
+        failureRedirect: `${API}/login`, // Redirect on failure
     }),
     (req, res) => {
         try {
