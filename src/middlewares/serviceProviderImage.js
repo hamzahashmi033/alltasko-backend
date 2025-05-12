@@ -3,9 +3,16 @@ const path = require("path");
 const fs = require("fs");
 
 // Create profile pictures directory
-const profilePicsDir = path.join(__dirname, "../../uploads/profilepictures");
+const profilePicsDir = process.env.NODE_ENV === 'production'
+    ? '/root/alltasko-backend/uploads/profilepictures'  // Server path
+    : path.join(__dirname, '../../uploads/profilepictures'); // Local dev path
+
+// Create directory if it doesn't exist
 if (!fs.existsSync(profilePicsDir)) {
-    fs.mkdirSync(profilePicsDir, { recursive: true });
+    fs.mkdirSync(profilePicsDir, {
+        recursive: true,
+        mode: 0o755  // rwxr-xr-x permissions
+    });
 }
 
 // Configure multer storage for profile pictures
@@ -33,7 +40,7 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-const uploadProfilePicture = multer({ 
+const uploadProfilePicture = multer({
     storage: storage,
     fileFilter: fileFilter,
     limits: {
