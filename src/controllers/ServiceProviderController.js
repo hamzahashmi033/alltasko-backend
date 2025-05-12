@@ -897,3 +897,32 @@ exports.uploadProfilePicture = async (req, res) => {
         });
     }
 };
+
+// controllers/authController.js
+exports.providerLogout = (req, res) => {
+    try {
+        // Mirror EXACTLY the same cookie settings used in login
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            domain: '.alltasko.com',
+            path: '/'
+        });
+
+    
+        return res.status(200).json({
+            success: true,
+            message: 'Logged out successfully'
+        });
+
+     
+
+    } catch (error) {
+        console.error('Logout error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Logout failed'
+        });
+    }
+};

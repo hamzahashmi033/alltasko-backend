@@ -45,5 +45,5 @@ router.post(
     uploadProfilePicture.single('profilePicture'),
     ServiceProviderController.uploadProfilePicture
 );
-
+router.get("/logout", verifyProviderToken, ServiceProviderController.providerLogout)
 module.exports = router;
