@@ -84,15 +84,15 @@ exports.verifyCodeAndRegister = async (req, res) => {
       loginMethod: user.loginMethod, // fallback to 'email'
     };
     const token = user.generateAuthToken()
-    res
-      .cookie("token", token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'None',
-        domain: '.alltasko.com', // Enables cross-subdomain sharing
-        path: '/',
-        maxAge: 7 * 24 * 60 * 60 * 1000
-      })
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'None' : 'Lax',
+      domain: isProduction ? '.alltasko.com' : undefined, // Only set domain in production
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    })
       .status(200)
       .json({ message: "User registered successfully", token, user: userInfo });
 
@@ -157,14 +157,15 @@ exports.loginUser = async (req, res) => {
     if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
     const token = user.generateAuthToken();
+    const isProduction = process.env.NODE_ENV === 'production';
     res.cookie("token", token, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'None',
-      domain: '.alltasko.com', // Enables cross-subdomain sharing
+      secure: isProduction,
+      sameSite: isProduction ? 'None' : 'Lax',
+      domain: isProduction ? '.alltasko.com' : undefined, // Only set domain in production
       path: '/',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    })
 
     res.status(200).json({ message: "Login successful", token, user });
   } catch (error) {

@@ -20,7 +20,7 @@ const ServiceProviderSchema = new mongoose.Schema({
     postalCode: { type: String, required: false },
     verificationCode: { type: String, required: false },
     isVerified: { type: Boolean, default: false },
-    profilePicture: { type: String, default: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3DlfHx8fGVufDB8fHx8fA%3D%3D" },
+    profilePicture: { type: String, default: null },
     selectedCategories: [
         {
             category: { type: String, required: true },
@@ -48,7 +48,7 @@ const ServiceProviderSchema = new mongoose.Schema({
 
 ServiceProviderSchema.methods.generateAuthToken = function () {
     return jwt.sign(
-        { _id: this._id, email: this.email, role: this.role },
+        { _id: this._id, email: this.email, verificationDocument: this.verificationDocument },
         process.env.PROVIDER_JWT_SECRET,
         { expiresIn: "7d" }
     );

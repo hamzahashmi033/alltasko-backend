@@ -3,7 +3,7 @@ const { ServiceRequest } = require('../models//LeadGeneration/ServiceRequest');
 const ServiceProvider = require('../models/ServiceProvider');
 const Stripe = require('stripe');
 const mongoose = require('mongoose');
-
+const frontURL = process.env.ENV === "production" ? process.env.FRONTEND_URL : process.env.DEV_FRONTEND_URL
 // Initialize payment for a lead purchase
 exports.initiatePayment = async (req, res) => {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -69,8 +69,8 @@ exports.initiatePayment = async (req, res) => {
             }],
             mode: 'payment',
             customer: provider.stripeCustomerId,
-            success_url: `${process.env.FRONTEND_URL}/payments/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.FRONTEND_URL}/payments/canceled?session_id={CHECKOUT_SESSION_ID}`,
+            success_url: `${frontURL}/payments/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${frontURL}/payments/canceled?session_id={CHECKOUT_SESSION_ID}`,
             metadata: {
                 serviceRequestId: serviceRequestId.toString(),
                 serviceProviderId: serviceProviderId.toString(),

@@ -5,14 +5,14 @@ const fs = require("fs");
 // Define paths based on environment
 const uploadDir = process.env.NODE_ENV === 'production'
   ? '/app/uploads'  // Docker container path
-  : path.resolve(__dirname, '../../uploads'); // Local dev path
+  : path.join(__dirname, '../../uploads'); // Local dev path
 
 // Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     // Skip directory creation in production (handled by Dockerfile)
     if (process.env.NODE_ENV !== 'production' && !fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { 
+      fs.mkdirSync(uploadDir, {
         recursive: true,
         mode: 0o755
       });

@@ -8,14 +8,14 @@ const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/alltasko";
 
 const server = http.createServer(app);
-
+const frontURL = process.env.ENV === "production" ? process.env.FRONTEND_URL : process.env.DEV_FRONTEND_URL
 mongoose.connect(MONGO_URI)
   .then(() => {
     console.log("✅ Connected to MongoDB");
 
     const io = new Server(server, {
       cors: {
-        origin: process.env.FRONTEND_URL,
+        origin: frontURL,
         methods: ["GET", "POST"]
       }
     });

@@ -96,14 +96,15 @@ exports.createServiceProviderAccount = async (req, res) => {
 
         const token = existingUser.generateAuthToken();
         await sendOnBoardingEmailToProvider(email, name)
+        const isProduction = process.env.NODE_ENV === 'production';
         res
             .cookie("token", token, {
                 httpOnly: true,
-                secure: true,
-                sameSite: 'None',
-                domain: '.alltasko.com', // Enables cross-subdomain sharing
+                secure: isProduction,
+                sameSite: isProduction ? 'None' : 'Lax',
+                domain: isProduction ? '.alltasko.com' : undefined, // Only set domain in production
                 path: '/',
-                maxAge: 7 * 24 * 60 * 60 * 1000
+                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
             })
             .status(200)
             .json({ message: "Service provider registered successfully", token });
@@ -136,17 +137,15 @@ exports.loginServiceProvider = async (req, res) => {
         if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
         const token = serviceProvider.generateAuthToken();
+        const isProduction = process.env.NODE_ENV === 'production';
         res.cookie("token", token, {
             httpOnly: true,
-            secure: true,
-            sameSite: 'None',
-            domain: '.alltasko.com', // Enables cross-subdomain sharing
+            secure: isProduction,
+            sameSite: isProduction ? 'None' : 'Lax',
+            domain: isProduction ? '.alltasko.com' : undefined, // Only set domain in production
             path: '/',
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        });
-
-
-        res.status(200).json({ message: "Login successful", token });
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        }).status(200).json({ message: "Login successful", token });
     } catch (error) {
         res.status(500).json({ error: "Error logging in", message: error.message });
     }
@@ -219,17 +218,42 @@ exports.uploadVerificationDocument = async (req, res) => {
             return res.status(400).json({ message: "Invalid service provider ID" });
         }
 
+        const provider = await ServiceProvider.findById(id)
+        if (!provider) {
+            return res.status(404).json({ message: "Provider not found" })
+        }
+        if (provider.verificationDocument) {
+            try {
+                // Ensure the path is correct (strip leading '/' if needed)
+                const docPath = provider.verificationDocument.startsWith('/')
+                    ? provider.verificationDocument.substring(1)
+                    : provider.verificationDocument;
+                const fullPath = path.resolve(__dirname, '..', provider.verificationDocument.replace(/^\//, ''));
+               
+               
+                if (fs.existsSync(fullPath)) {
+                    fs.unlinkSync(fullPath);
+                    console.log(`Deleted old file: ${fullPath}`);
+                }
+            } catch (fileError) {
+                console.error("Failed to delete old file:", fileError);
+                // Don't fail the entire request if deletion fails
+            }
+        }
         // Ensure a file was uploaded
         if (!req.file) {
             return res.status(400).json({ message: "No file uploaded" });
         }
 
+        const filePath = `/uploads/${req.file.filename}`;
+
         // Update the service provider with the file path
         const updatedProvider = await ServiceProvider.findByIdAndUpdate(
             id,
-            { verificationDocument: req.file.path, status: "pending" },
+            { verificationDocument: filePath, status: "pending" },
             { new: true }
         );
+
 
         if (!updatedProvider) {
             return res.status(404).json({ message: "Service provider not found" });
@@ -872,7 +896,7 @@ exports.uploadProfilePicture = async (req, res) => {
 
         // If you need to delete the previous profile picture
         if (req.provider.profilePicture) {
-            const oldFilePath = path.join(__dirname, '../../', req.user.profilePicture);
+            const oldFilePath = path.join(__dirname, '../../', req.provider.profilePicture);
             fs.unlinkSync(oldFilePath);
         }
 
@@ -910,13 +934,13 @@ exports.providerLogout = (req, res) => {
             path: '/'
         });
 
-    
+
         return res.status(200).json({
             success: true,
             message: 'Logged out successfully'
         });
 
-     
+
 
     } catch (error) {
         console.error('Logout error:', error);

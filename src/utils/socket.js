@@ -6,9 +6,10 @@ const Message = require('../models/Messages');
 let io;
 
 const initializeSocket = (server) => {
+    const frontURL = process.env.ENV === "production" ? process.env.FRONTEND_URL : process.env.DEV_FRONTEND_URL
     io = socketio(server, {
         cors: {
-            origin: process.env.FRONTEND_URL,
+            origin: frontURL,
             methods: ["GET", "POST"],
             credentials: true
         },

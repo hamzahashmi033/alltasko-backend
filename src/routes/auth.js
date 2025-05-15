@@ -3,6 +3,8 @@ const passport = require("passport");
 const jwt = require("jsonwebtoken");
 const router = express.Router();
 
+
+const frontURL = process.env.ENV === "production" ? process.env.FRONTEND_URL : process.env.DEV_FRONTEND_URL
 // Google Auth Route
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 // Facebook Auth Route
@@ -23,61 +25,68 @@ router.get(
         );
 
         // Send token as cookie or JSON response
+        const isProduction = process.env.NODE_ENV === 'production';
         res.cookie("token", token, {
             httpOnly: true,
-            secure: true,
-            sameSite: 'None',
-            domain: '.alltasko.com',
+            secure: isProduction,
+            sameSite: isProduction ? 'None' : 'Lax',
+            domain: isProduction ? '.alltasko.com' : undefined, // Only set domain in production
             path: '/',
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        }).redirect(process.env.FRONTEND_URL); 
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        }).redirect(frontURL);
     }
 );
 // Facebook Callback Route
-router.get(
-    "/facebook/callback",
-    passport.authenticate("facebook", {
-        successRedirect: process.env.FRONTEND_URL, // Redirect on success
-        failureRedirect: `${process.env.FRONTEND_URL}/login`, // Redirect on failure
-    }),
-    (req, res) => {
-        try {
-            // Generate JWT Token
-            const token = jwt.sign(
-                { _id: req.user._id, email: req.user.email, role: req.user.role },
-                process.env.JWT_SECRET,
-                { expiresIn: "7d" }
-            );
 
-            // Send token as cookie or JSON response
-            res.cookie("token", token, {
-                httpOnly: true,
-                secure: true,
-                sameSite: 'None',
-                domain: '.alltasko.com',
-                path: '/',
-                maxAge: 7 * 24 * 60 * 60 * 1000
-            })
-                .redirect("/"); // Make sure to redirect to home after success
-        } catch (error) {
-            console.error("Error generating JWT token:", error);
-            res.redirect("/login"); // Send user to login in case of failure
-        }
-    }
-);
+// router.get(
+//     "/facebook/callback",
+//     passport.authenticate("facebook", {
+//         successRedirect: process.env.FRONTEND_URL, // Redirect on success
+//         failureRedirect: `${process.env.FRONTEND_URL}/login`, // Redirect on failure
+//     }),
+//     (req, res) => {
+//         try {
+//             // Generate JWT Token
+//             const token = jwt.sign(
+//                 { _id: req.user._id, email: req.user.email, role: req.user.role },
+//                 process.env.JWT_SECRET,
+//                 { expiresIn: "7d" }
+//             );
+
+//             // Send token as cookie or JSON response
+//             const isProduction = process.env.NODE_ENV === 'production';
+//             res.cookie("token", token, {
+//                 httpOnly: true,
+//                 secure: isProduction,
+//                 sameSite: isProduction ? 'None' : 'Lax',
+//                 domain: isProduction ? '.alltasko.com' : undefined, // Only set domain in production
+//                 path: '/',
+//                 maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+//             })
+//                 .redirect("/"); // Make sure to redirect to home after success
+//         } catch (error) {
+//             console.error("Error generating JWT token:", error);
+//             res.redirect("/login"); // Send user to login in case of failure
+//         }
+//     }
+// );
 
 // Logout Route
 router.get("/logout", (req, res) => {
+    const isProduction = process.env.NODE_ENV === 'production';
+
     req.logout(() => {
         res.clearCookie('token', {
             httpOnly: true,
-            secure: true,
-            sameSite: 'None',
-            domain: '.alltasko.com',
+            secure: isProduction,
+            sameSite: isProduction ? 'None' : 'Lax',
+            domain: isProduction ? '.alltasko.com' : undefined,
             path: '/'
         });
+
         res.redirect("/");
     });
 });
+
 
 module.exports = router;
