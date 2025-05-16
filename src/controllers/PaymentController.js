@@ -69,8 +69,8 @@ exports.initiatePayment = async (req, res) => {
             }],
             mode: 'payment',
             customer: provider.stripeCustomerId,
-            success_url: `${frontURL}/payments/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${frontURL}/payments/canceled?session_id={CHECKOUT_SESSION_ID}`,
+            success_url: `${process.env.DEV_FRONTEND_URL}/payments/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.DEV_FRONTEND_URL}/payments/canceled?session_id={CHECKOUT_SESSION_ID}`,
             metadata: {
                 serviceRequestId: serviceRequestId.toString(),
                 serviceProviderId: serviceProviderId.toString(),

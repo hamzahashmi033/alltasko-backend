@@ -3,8 +3,6 @@ const router = express.Router();
 // const auth = require('../middleware/auth');
 const { verifyProviderToken, verifyToken } = require("../middlewares/verifyTokens")
 const Conversation = require('../models/Conversation');
-const Message = require('../models/Messages');
-
 // Create new conversation (provider only)
 router.post('/', verifyProviderToken, async (req, res) => {
     try {

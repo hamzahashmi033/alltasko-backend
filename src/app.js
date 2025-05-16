@@ -72,7 +72,7 @@ app.use("/auth", authRoutes);
 app.use("/api/leads", leadGenerationRoutes)
 app.use("/api/payments", paymentRoutes)
 app.use('/api/conversations', require('./routes/conversationRoutes'));
-app.use('/api/messages', require('./routes/messagesRoutes'));
+app.use("/api/admin", require("./routes/adminRoutes"))
 
 
 module.exports = app;
