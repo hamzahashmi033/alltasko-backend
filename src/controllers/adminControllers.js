@@ -1,7 +1,7 @@
 const ServiceProvider = require("../models/ServiceProvider");
 const Payment = require("../models/payments");
 const User = require("../models/User");
-const ServiceRequest = require("../models/LeadGeneration/ServiceRequest");
+const { ServiceRequest } = require("../models/LeadGeneration/ServiceRequest");
 const mongoose = require('mongoose');
 
 
@@ -90,8 +90,12 @@ exports.getCompletedPaymentsWithDetails = async (req, res) => {
         });
     }
 };
+
+
 exports.getServiceRequestCounts = async (req, res) => {
     try {
+        console.log(typeof ServiceRequest, ServiceRequest.modelName);
+
         // Get counts in parallel for better performance
         const [totalCount, purchasedCount, notPurchasedCount] = await Promise.all([
             ServiceRequest.countDocuments(),
@@ -99,18 +103,16 @@ exports.getServiceRequestCounts = async (req, res) => {
             ServiceRequest.countDocuments({ isPurchased: false })
         ]);
 
-        // Get counts by service type (optional enhancement)
-
 
         res.status(200).json({
             success: true,
             total: totalCount,
             purchased: purchasedCount,
             notPurchased: notPurchasedCount,
-
         });
 
     } catch (error) {
+        console.error('Error in getServiceRequestCounts:', error);
         res.status(500).json({
             success: false,
             message: "Error fetching request counts",
@@ -120,43 +122,50 @@ exports.getServiceRequestCounts = async (req, res) => {
 };
 exports.getAllServiceRequests = async (req, res) => {
     try {
-        const { isPurchased } = req.query;
+        const { isPurchased, status } = req.query;
 
         // Build the query object
         const query = {};
 
-        // Handle isPurchased filter
+        // Handle filters
         if (isPurchased !== undefined) {
             query.isPurchased = isPurchased === 'true';
         }
+        if (status) {
+            query.status = status;
+        }
 
-        // Fetch requests with deep population
+        // Fetch requests with population
         const requests = await ServiceRequest.find(query)
             .populate([
                 {
                     path: 'customer',
-                    select: '-password -verificationCode' // Exclude sensitive fields
+                    select: 'name email' // Only include needed fields
                 },
                 {
                     path: 'purchasedBy',
-                    select: 'name email contactInfo profilePicture'
+                    select: 'name email contactInfo'
                 },
                 {
                     path: 'serviceProvider',
-                    select: 'name email contactInfo profilePicture'
+                    select: 'name email contactInfo'
                 }
             ])
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean(); // Use lean() for better performance
 
-        // Format the response
+        // Format the response to match table needs
         const formattedRequests = requests.map(request => {
-            const requestObj = request.toObject();
-
             return {
-                ...requestObj,
-                kind: request.constructor.modelName, // Include discriminator type
-                purchasedPrice: requestObj.purchasedPrice / 100, // Convert to dollars if stored as cents
-                formattedPrice: requestObj.purchasedPrice ? `$${(requestObj.purchasedPrice / 100).toFixed(2)}` : null
+                _id: request._id,
+                serviceProvider: request.purchasedBy || request.serviceProvider[0] || null,
+                customer: request.customer,
+                serviceType: request.serviceType,
+                status: request.status,
+                amount: request.purchasedPrice ? `$${(request.purchasedPrice / 100).toFixed(2)}` : 'N/A',
+                date: request.createdAt,
+                // Include additional fields you might need
+                ...request
             };
         });
 
@@ -478,7 +487,7 @@ exports.updateAccountStatus = async (req, res) => {
         }
 
         // Prepare update object
-        const update = { 
+        const update = {
             accountStatus,
             onHold: accountStatus === "on_hold" // Auto-set onHold based on status
         };
