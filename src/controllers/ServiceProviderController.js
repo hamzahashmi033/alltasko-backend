@@ -31,46 +31,27 @@ exports.createServiceProviderAccount = async (req, res) => {
 
         let processedCategories = [];
 
+        // Process only categories (no subcategories)
         for (const selectedCategory of selectedCategories) {
-            const { category, serviceRadius, postalCode, subcategories } = selectedCategory;
+            const { category, serviceRadius, postalCode } = selectedCategory;
 
-            const categoryDoc = await Category.findOne({ category });
+            // Find category by name or slug
+            const categoryDoc = await Category.findOne({
+                $or: [
+                    { name: category },
+                    { slug: category.toLowerCase().replace(/\s+/g, '-') }
+                ]
+            });
+
             if (!categoryDoc) {
                 return res.status(400).json({ message: `Invalid category: ${category}` });
             }
 
-            let processedSubcategories = [];
-
-            for (const selectedSubcategory of subcategories) {
-                const subcategoryDoc = categoryDoc.subcategories.find(
-                    (sub) => sub.subcategory === selectedSubcategory.subcategory
-                );
-
-                if (!subcategoryDoc) {
-                    return res.status(400).json({ message: `Invalid subcategory: ${selectedSubcategory.subcategory}` });
-                }
-
-                let processedSubSubcategories = [];
-
-                for (const subSub of selectedSubcategory.subSubcategories) {
-                    if (!subcategoryDoc.subSubcategories.includes(subSub)) {
-                        return res.status(400).json({ message: `Invalid sub-subcategory: ${subSub}` });
-                    }
-
-                    processedSubSubcategories.push(subSub);
-                }
-
-                processedSubcategories.push({
-                    subcategory: selectedSubcategory.subcategory,
-                    subSubcategories: processedSubSubcategories,
-                });
-            }
-
             processedCategories.push({
-                category,
+                category: categoryDoc.name,
                 serviceRadius,
-                postalCode,
-                subcategories: processedSubcategories,
+                postalCode
+                // No subcategories included
             });
         }
 
@@ -95,16 +76,17 @@ exports.createServiceProviderAccount = async (req, res) => {
         );
 
         const token = existingUser.generateAuthToken();
-        await sendOnBoardingEmailToProvider(email, name)
+        await sendOnBoardingEmailToProvider(email, name);
+
         const isProduction = process.env.NODE_ENV === 'production';
         res
             .cookie("token", token, {
                 httpOnly: true,
                 secure: isProduction,
                 sameSite: isProduction ? 'None' : 'Lax',
-                domain: isProduction ? '.alltasko.com' : undefined, // Only set domain in production
+                domain: isProduction ? '.alltasko.com' : undefined,
                 path: '/',
-                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+                maxAge: 7 * 24 * 60 * 60 * 1000
             })
             .status(200)
             .json({ message: "Service provider registered successfully", token });
@@ -229,8 +211,8 @@ exports.uploadVerificationDocument = async (req, res) => {
                     ? provider.verificationDocument.substring(1)
                     : provider.verificationDocument;
                 const fullPath = path.resolve(__dirname, '..', provider.verificationDocument.replace(/^\//, ''));
-               
-               
+
+
                 if (fs.existsSync(fullPath)) {
                     fs.unlinkSync(fullPath);
                     console.log(`Deleted old file: ${fullPath}`);
@@ -360,9 +342,6 @@ exports.addMoreCategories = async (req, res) => {
             return res.status(400).json({ message: "Invalid selectedCategories format" });
         }
 
-        // Fetch all valid categories from the database
-        const allCategories = await Category.find().lean();
-
         // Fetch existing service provider
         const serviceProvider = await ServiceProvider.findById(id);
         if (!serviceProvider) {
@@ -371,67 +350,43 @@ exports.addMoreCategories = async (req, res) => {
 
         // Get provider's default postal code if available
         const defaultPostalCode = serviceProvider.postalCode || '';
-
         let existingCategories = serviceProvider.selectedCategories || [];
 
-        // Helper function to find a category in the existing list
-        const findCategory = (categoryName) => existingCategories.find(cat => cat.category === categoryName);
-
         // Process each new selected category
-        selectedCategories.forEach(selectedCategory => {
-            const categoryExists = allCategories.find(cat => cat.category === selectedCategory.category);
-            if (!categoryExists) {
-                throw new Error(`Invalid category: ${selectedCategory.category}`);
+        for (const selectedCategory of selectedCategories) {
+            // Find category by name or slug
+            const categoryDoc = await Category.findOne({
+                $or: [
+                    { name: selectedCategory.category },
+                    { slug: selectedCategory.category.toLowerCase().replace(/\s+/g, '-') }
+                ]
+            });
+
+            if (!categoryDoc) {
+                return res.status(400).json({ message: `Invalid category: ${selectedCategory.category}` });
             }
 
-            // Ensure required fields are present
-            if (!selectedCategory.postalCode) {
-                selectedCategory.postalCode = defaultPostalCode;
-            }
-            if (!selectedCategory.serviceRadius) {
-                selectedCategory.serviceRadius = 120; // Default radius
-            }
+            // Check if category already exists in provider's list
+            const existingCategoryIndex = existingCategories.findIndex(
+                cat => cat.category === categoryDoc.name
+            );
 
-            let existingCategory = findCategory(selectedCategory.category);
-            if (!existingCategory) {
-                // If category doesn't exist, add it with all properties
+            if (existingCategoryIndex === -1) {
+                // Add new category
                 existingCategories.push({
-                    category: selectedCategory.category,
-                    postalCode: selectedCategory.postalCode,
-                    serviceRadius: selectedCategory.serviceRadius,
-                    subcategories: selectedCategory.subcategories || []
+                    category: categoryDoc.name,
+                    postalCode: selectedCategory.postalCode || defaultPostalCode,
+                    serviceRadius: selectedCategory.serviceRadius || 120 // Default radius
                 });
             } else {
-                // Update existing category with new properties
-                existingCategory.postalCode = selectedCategory.postalCode || existingCategory.postalCode || defaultPostalCode;
-                existingCategory.serviceRadius = selectedCategory.serviceRadius || existingCategory.serviceRadius || 120;
-
-                // Merge subcategories
-                selectedCategory.subcategories.forEach(selectedSub => {
-                    const subcategoryExists = categoryExists.subcategories.find(sub => sub.subcategory === selectedSub.subcategory);
-                    if (!subcategoryExists) {
-                        throw new Error(`Invalid subcategory: ${selectedSub.subcategory} in category ${selectedCategory.category}`);
-                    }
-
-                    let existingSubcategory = existingCategory.subcategories.find(sub => sub.subcategory === selectedSub.subcategory);
-                    if (!existingSubcategory) {
-                        // Add new subcategory
-                        existingCategory.subcategories.push({
-                            subcategory: selectedSub.subcategory,
-                            subSubcategories: selectedSub.subSubcategories || []
-                        });
-                    } else {
-                        // Merge sub-subcategories
-                        selectedSub.subSubcategories.forEach(subSub => {
-                            if (subcategoryExists.subSubcategories.includes(subSub) &&
-                                !existingSubcategory.subSubcategories.includes(subSub)) {
-                                existingSubcategory.subSubcategories.push(subSub);
-                            }
-                        });
-                    }
-                });
+                // Update existing category
+                existingCategories[existingCategoryIndex] = {
+                    ...existingCategories[existingCategoryIndex],
+                    postalCode: selectedCategory.postalCode || existingCategories[existingCategoryIndex].postalCode,
+                    serviceRadius: selectedCategory.serviceRadius || existingCategories[existingCategoryIndex].serviceRadius
+                };
             }
-        });
+        }
 
         // Update the service provider
         serviceProvider.selectedCategories = existingCategories;
@@ -463,7 +418,7 @@ exports.deleteSelectedCategory = async (req, res) => {
 
         // Filter out the category to be deleted
         const updatedCategories = serviceProvider.selectedCategories.filter(
-            (cat) => cat.category !== category
+            cat => cat.category !== category
         );
 
         // Update the service provider document
@@ -471,7 +426,7 @@ exports.deleteSelectedCategory = async (req, res) => {
         await serviceProvider.save();
 
         res.status(200).json({
-            message: `Category '${category}' and its subcategories removed successfully`,
+            message: `Category '${category}' removed successfully`,
             selectedCategories: serviceProvider.selectedCategories,
         });
     } catch (error) {
@@ -668,70 +623,111 @@ exports.updateProviderPassword = async (req, res) => {
 
 exports.getAvailableProviders = async (req, res) => {
     try {
-        const { postalCode, subSubCategory } = req.query;
+        const { postalCode, category } = req.query;
 
-        if (!postalCode || !subSubCategory) {
-            return res.status(400).json({ message: "Postal code and sub-subcategory are required" });
+        // Validate required parameters
+        if (!postalCode || !category) {
+            return res.status(400).json({
+                success: false,
+                message: "Both postal code and category are required"
+            });
         }
 
-        // Fetch client location from postal code (Dummy Data - Replace with DB query or API)
-        const clientLocation = await getCoordinatesFromPostalCode(postalCode);
-        if (!clientLocation) {
-            return res.status(400).json({ message: "Invalid client postal code" });
+        // Get client coordinates
+        const clientCoords = await getCoordinatesFromPostalCode(postalCode);
+        if (!clientCoords) {
+            return res.status(400).json({
+                success: false,
+                message: "Could not determine location from postal code"
+            });
         }
 
-        // Fetch all service providers who offer this subSubCategory
+        // Find providers offering this service category
         const providers = await ServiceProvider.find({
-            "selectedCategories.subcategories.subSubcategories": subSubCategory
-        });
+            "selectedCategories.category": category
+        }).select('-password -verificationCode -__v');
 
-        let filteredProviders = [];
+        if (!providers.length) {
+            return res.status(404).json({
+                success: false,
+                message: "No providers found for this service category"
+            });
+        }
+
+        const availableProviders = [];
 
         for (const provider of providers) {
-            for (const category of provider.selectedCategories) {
-                for (const subcategory of category.subcategories) {
-                    if (subcategory.subSubcategories.includes(subSubCategory)) {
-                        const providerLocation = await getCoordinatesFromPostalCode(category.postalCode);
+            const serviceCategory = provider.selectedCategories.find(
+                sc => sc.category === category
+            );
 
-                        if (!providerLocation) continue;
+            if (!serviceCategory) continue;
 
-                        // Calculate distance between client & provider
-                        const distance = geolib.getDistance(
-                            { latitude: clientLocation.lat, longitude: clientLocation.lng },
-                            { latitude: providerLocation.lat, longitude: providerLocation.lng }
-                        );
+            // Get provider's service location
+            const providerCoords = await getCoordinatesFromPostalCode(
+                serviceCategory.postalCode || provider.postalCode
+            );
 
-                        // If within service radius, include the provider in the filtered list
-                        if (distance <= category.serviceRadius) {
-                            // Push the provider's full data, without selectedCategories
-                            filteredProviders.push({
-                                _id: provider._id,
-                                name: provider.name,
-                                email: provider.email,
-                                about: provider.about,
-                                contactInfo: provider.contactInfo,
-                                country: provider.country,
-                                city: provider.city,
-                                postalCode: provider.postalCode,
-                                profilePicture: provider.profilePicture,
-                                reviews: provider.reviews,
-                                distance: distance // Optionally include the distance from the client
-                            });
-                        }
-                    }
-                }
+            if (!providerCoords) continue;
+
+            // Calculate distance in miles
+            const distanceMiles = geolib.getDistance(
+                { latitude: clientCoords.lat, longitude: clientCoords.lng },
+                { latitude: providerCoords.lat, longitude: providerCoords.lng }
+            ) / 1609.34;
+
+            // Check if within service radius
+            if (distanceMiles <= (serviceCategory.serviceRadius || 10)) {
+                availableProviders.push({
+                    ...provider.toObject(),
+                    distance: parseFloat(distanceMiles.toFixed(1)),
+                    serviceRadius: serviceCategory.serviceRadius,
+                    serviceArea: serviceCategory.postalCode,
+                    isSubscriptionHolder: provider.isSubscriptionHolder || false
+                });
             }
         }
 
-        if (filteredProviders.length === 0) {
-            return res.status(404).json({ message: "No service providers found within the specified radius" });
+        if (!availableProviders.length) {
+            return res.status(404).json({
+                success: false,
+                message: "No available providers within your area"
+            });
         }
 
-        res.status(200).json(filteredProviders);
+        // Sort with subscription holders first, then by distance
+        availableProviders.sort((a, b) => {
+            // Both are subscription holders - sort by distance
+            if (a.isSubscriptionHolder && b.isSubscriptionHolder) {
+                return a.distance - b.distance;
+            }
+            // Only a is subscription holder
+            else if (a.isSubscriptionHolder) {
+                return -1;
+            }
+            // Only b is subscription holder
+            else if (b.isSubscriptionHolder) {
+                return 1;
+            }
+            // Neither are subscription holders - sort by distance
+            else {
+                return a.distance - b.distance;
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            count: availableProviders.length,
+            filteredProviders: availableProviders
+        });
 
     } catch (error) {
-        console.error("Error fetching service providers:", error);
-        res.status(500).json({ message: "Server Error", error: error.message });
+        console.error("Provider search error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error searching for providers",
+            error: error.message
+        });
     }
 };
 

@@ -7,6 +7,7 @@ const session = require("express-session")
 const passport = require("passport")
 const FormConfiguration = require("./models/LeadGeneration/LeadFormConfiguration")
 const webhooksRoutes = require("./routes/webhookRoutes")
+const Category = require("./models/Category")
 require("dotenv").config();
 require("./config/google");
 require("./config/facebook")
@@ -74,5 +75,40 @@ app.use("/api/payments", paymentRoutes)
 app.use('/api/conversations', require('./routes/conversationRoutes'));
 app.use("/api/admin", require("./routes/adminRoutes"))
 
+async function deleteCategoriesWithoutDescription() {
+   try {
+      let deletedCount = 0;
+      
+      // Find all categories that either:
+      // 1. Don't have a description field, OR
+      // 2. Have description field that's empty or just whitespace
+      const categoriesToDelete = await Category.find({
+         $or: [
+            { description: { $exists: false } }, // Field doesn't exist
+            { description: null }, // Field is null
+            { description: '' }, // Empty string
+            { description: { $regex: /^\s*$/ } } // Only whitespace
+         ]
+      });
+
+      // Delete all matching categories
+      for (const category of categoriesToDelete) {
+         await Category.deleteOne({ _id: category._id });
+         deletedCount++;
+         console.log(`Deleted category (missing/empty description): ${category.name}`);
+      }
+
+      console.log(`
+      Deletion complete:
+      - Total deleted: ${deletedCount} categories
+      `);
+
+   } catch (error) {
+      console.error('Error deleting categories:', error);
+   }
+}
+
+// Execute the function
+// deleteCategoriesWithoutDescription();
 
 module.exports = app;

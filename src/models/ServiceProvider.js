@@ -16,6 +16,7 @@ const ServiceProviderSchema = new mongoose.Schema({
     contactInfo: { type: String, required: false },
     country: { type: String, required: false },
     state: { type: String, required: false },
+    isSubscriptionHolder: { type: Boolean, required: false, default: false },
     city: { type: String, required: false },
     postalCode: { type: String, required: false },
     verificationCode: { type: String, required: false },
@@ -28,8 +29,8 @@ const ServiceProviderSchema = new mongoose.Schema({
             postalCode: { type: String, required: true },
             subcategories: [
                 {
-                    subcategory: { type: String, required: true },
-                    subSubcategories: [{ type: String, required: true }],
+                    subcategory: { type: String, required: false, default: null },
+                    subSubcategories: [{ type: String, required: false, default: null }],
                 },
             ],
         },

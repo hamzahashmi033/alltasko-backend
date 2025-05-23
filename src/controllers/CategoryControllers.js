@@ -48,33 +48,62 @@ exports.searchSubSubcategories = async (req, res) => {
             return res.status(400).json({ error: "Search query is required" });
         }
 
-        // Find subSubcategories matching the query
+        // Search both old and new structures
         const categories = await Category.find({
-            "subcategories.subSubcategories": { $regex: `^${query}`, $options: "i" }
+            $or: [
+                // Old structure search
+                { "subcategories.subSubcategories": { $regex: `^${query}`, $options: "i" } },
+
+                // New structure search options
+                { "name": { $regex: `^${query}`, $options: "i" } },
+                { "slug": { $regex: `^${query}`, $options: "i" } },
+                { "subcategories.name": { $regex: `^${query}`, $options: "i" } }
+            ]
         });
 
-        // Extract only subSubcategories
-        let subSubcategories = [];
+        // Extract results from both structures
+        let results = new Set(); // Using Set to automatically handle duplicates
+
         categories.forEach(category => {
-            category.subcategories.forEach(subcategory => {
-                subcategory.subSubcategories.forEach(subSub => {
-                    if (subSub.toLowerCase().startsWith(query.toLowerCase())) {
-                        subSubcategories.push(subSub);
+            // Check new structure first
+            if (category.name && category.name.toLowerCase().startsWith(query.toLowerCase())) {
+                results.add(category.name);
+            }
+
+            // Check old structure if exists
+            if (category.subcategories && category.subcategories.length > 0) {
+                category.subcategories.forEach(subcategory => {
+                    // Check subcategory name in new structure
+                    if (subcategory.name && subcategory.name.toLowerCase().startsWith(query.toLowerCase())) {
+                        results.add(subcategory.name);
+                    }
+
+                    // Check old subSubcategories
+                    if (subcategory.subSubcategories) {
+                        subcategory.subSubcategories.forEach(subSub => {
+                            if (subSub.toLowerCase().startsWith(query.toLowerCase())) {
+                                results.add(subSub);
+                            }
+                        });
                     }
                 });
-            });
+            }
         });
 
-        // Remove duplicates
-        subSubcategories = [...new Set(subSubcategories)];
-
-        res.json({ results: subSubcategories });
+        res.json({
+            success: true,
+            results: Array.from(results)
+        });
 
     } catch (error) {
         console.error("Search Error:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+        res.status(500).json({
+            success: false,
+            error: "Internal Server Error",
+            message: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
-};
+};  
 
 exports.getSubCategories = async (req, res) => {
     try {
