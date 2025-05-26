@@ -78,7 +78,7 @@ exports.createServiceProviderAccount = async (req, res) => {
         const token = existingUser.generateAuthToken();
         await sendOnBoardingEmailToProvider(email, name);
 
-        const isProduction = process.env.NODE_ENV === 'production';
+          const isProduction = true;
         res
             .cookie("token", token, {
                 httpOnly: true,
@@ -119,7 +119,7 @@ exports.loginServiceProvider = async (req, res) => {
         if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
         const token = serviceProvider.generateAuthToken();
-        const isProduction = process.env.NODE_ENV === 'production';
+        const isProduction = true;
         res.cookie("token", token, {
             httpOnly: true,
             secure: isProduction,

@@ -84,7 +84,7 @@ exports.verifyCodeAndRegister = async (req, res) => {
       loginMethod: user.loginMethod, // fallback to 'email'
     };
     const token = user.generateAuthToken()
-    const isProduction = process.env.NODE_ENV === 'production';
+   const isProduction = true;
     res.cookie("token", token, {
       httpOnly: true,
       secure: isProduction,
@@ -157,7 +157,7 @@ exports.loginUser = async (req, res) => {
     if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
     const token = user.generateAuthToken();
-    const isProduction = process.env.NODE_ENV === 'production';
+    const isProduction = true;
     res.cookie("token", token, {
       httpOnly: true,
       secure: isProduction,
