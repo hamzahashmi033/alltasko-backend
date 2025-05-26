@@ -7,7 +7,8 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL:   process.env.FRONTEND_URL,
+      callbackURL: "https://api.alltasko.com/auth/google/callback",
+      
       passReqToCallback: true,
     },
     async (req, accessToken, refreshToken, profile, done) => {

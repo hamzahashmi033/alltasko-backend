@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const router = express.Router();
 
 
-const frontURL = process.env.ENV === "production" ? process.env.FRONTEND_URL : process.env.DEV_FRONTEND_URL
+const frontURL = process.env.FRONTEND_URL
 // Google Auth Route
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 // Facebook Auth Route
