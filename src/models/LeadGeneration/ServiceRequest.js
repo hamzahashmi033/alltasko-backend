@@ -45,6 +45,7 @@ const BaseServiceSchema = new mongoose.Schema({
         email: { type: String, required: true },
         address: { type: String, required: true },
         zipCode: { type: String, required: true },
+        phoneNo: { type: String, required: true },
         contactPreference: {
             type: String,
             enum: ["Call", "SMS", "WhatsApp", "Email"],
@@ -59,6 +60,66 @@ const BaseServiceSchema = new mongoose.Schema({
 
 const ServiceRequest = mongoose.model('ServiceRequest', BaseServiceSchema);
 
+const PlumbingRequest = ServiceRequest.discriminator("PlumbingRequest", new mongoose.Schema({
+    plumbingWorkType: {
+        type: [String],
+        enum: [
+            "Faucet installation or replacement",
+            "Toilet installation or repair",
+            "Sink installation or repair",
+            "Shower or bathtub plumbing",
+            "Drain unclogging",
+            "Leak detection or pipe repair",
+            "Garbage disposal install or repair",
+            "Water line for fridge or dishwasher",
+            "Other"
+        ],
+        required: true
+    },
+    fixturesCount: {
+        type: String,
+        enum: [
+            "1",
+            "2",
+            "3–5",
+            "6–10",
+            "More than 10"
+        ],
+        required: true
+    },
+    installationType: {
+        type: String,
+        enum: [
+            "New installation",
+            "Replacement of old fixture",
+            "Repair of existing plumbing",
+            "Not sure"
+        ],
+        required: true
+    },
+    waterShutoffStatus: {
+        type: String,
+        enum: [
+            "Yes",
+            "No",
+            "Not sure"
+        ],
+        required: true
+    },
+    additionalWorkNeeded: {
+        type: String,
+        enum: [
+            "Yes",
+            "No",
+            "Not sure"
+        ],
+        required: true
+    },
+    additionalNotes: {
+        type: String,
+        required: false
+    }
+}));
 // Handyman Service schema
 const HandymanRequest = ServiceRequest.discriminator('HandymanRequest', new mongoose.Schema({
     jobType: { type: String, enum: ["New Installation", "Repair", "Not Sure"] },
@@ -269,4 +330,4 @@ const CabinetCountertopRequest = ServiceRequest.discriminator('CabinetCountertop
 
 
 
-module.exports = { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest, YardworkRequest };
+module.exports = { ServiceRequest, PlumbingRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest, YardworkRequest };

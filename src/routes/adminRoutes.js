@@ -10,7 +10,7 @@ router.get("/getServiceRequestTotalCount",AdminController.getServiceRequestCount
 router.get("/getAllServiceRequest",AdminController.getAllServiceRequests)
 router.delete("/deleteServiceRequest/:id",AdminController.deleteServiceRequest)
 router.get("/getAllUsers",AdminController.getAllUsers)
-router.delete("/deleteUser",AdminController.deleteUser)
+router.delete("/deleteUser/:id",AdminController.deleteUser)
 router.get("/getAllProfessionals",AdminController.getAllProfessionals)
 router.delete("/deleteProfessional/:id",AdminController.deleteProfessional)
 router.put("/updateVerificationStatus/:id",AdminController.updateVerificationStatus)

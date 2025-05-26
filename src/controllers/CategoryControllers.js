@@ -145,12 +145,16 @@ exports.findHierarchyBySubSubcategory = async (req, res) => {
             return res.status(400).json({ error: "subSubcategory is required in the request body" });
         }
 
-        const categories = await Category.find({
-            "subcategories.subSubcategories": { $regex: `^${subSubcategory}$`, $options: "i" }
+        // Search for category by either name or slug (new structure) or category (old structure)
+        const category = await Category.findOne({
+            $or: [
+                { name: subSubcategory },
+                { slug: subSubcategory },
+                { category: subSubcategory }
+            ]
         });
 
-        // If no categories are found, return null with success false
-        if (!categories.length) {
+        if (!category) {
             return res.status(200).json({
                 category: null,
                 subcategory: null,
@@ -159,40 +163,13 @@ exports.findHierarchyBySubSubcategory = async (req, res) => {
             });
         }
 
-        let foundMatch = false;
-
-        // Loop through categories and subcategories to find a matching subSubcategory
-        for (const category of categories) {
-            for (const sub of category.subcategories) {
-                const match = sub.subSubcategories.find(
-                    subSub => subSub.toLowerCase() === subSubcategory.toLowerCase()
-                );
-
-                if (match) {
-                    // Found a match, return the corresponding data
-                    foundMatch = true;
-                    const categoryData = category.category || null;
-                    const subcategoryData = sub.subcategory || null;
-
-                    return res.status(200).json({
-                        category: categoryData,
-                        subcategory: subcategoryData,
-                        subSubcategory: match,
-                        success: true
-                    });
-                }
-            }
-        }
-
-        // If no match is found in any of the subcategories, return null with success false
-        if (!foundMatch) {
-            return res.status(200).json({
-                category: null,
-                subcategory: null,
-                subSubcategory: null,
-                success: false
-            });
-        }
+        // Return the found category (using new name field if available, fallback to old category field)
+        return res.status(200).json({
+            category: category.name || category.category || null,
+            subcategory: null,
+            subSubcategory: null,
+            success: true
+        });
 
     } catch (error) {
         console.error("Hierarchy Lookup Error:", error);

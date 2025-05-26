@@ -38,7 +38,7 @@ router.get('/provider/conversations', verifyProviderToken, async (req, res) => {
             provider: req.provider._id // Only conversations where they're the provider
         })
             .populate('user', 'name')
-            .populate('lead', 'serviceTypeSubSubCategory')
+            .populate('lead', 'serviceType')
             .sort('-updatedAt');
 
         res.json(conversations);
@@ -53,7 +53,7 @@ router.get('/user/conversations', verifyToken, async (req, res) => {
             user: req.user._id 
         })
             .populate('provider', 'name')
-            .populate('lead', 'serviceTypeSubSubCategory')
+            .populate('lead', 'serviceType')
             .sort('-updatedAt');
         res.json(conversations);
     } catch (err) {

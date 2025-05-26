@@ -2,7 +2,7 @@ const FormConfiguration = require("../models/LeadGeneration/LeadFormConfiguratio
 const fs = require('fs');
 const path = require('path');
 const ServiceProvider = require('../models/ServiceProvider');
-const { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest, YardworkRequest } = require("../models/LeadGeneration/ServiceRequest");
+const { ServiceRequest, HandymanRequest, MovingRequest, CustomRequest, CleaningRequest, YardworkRequest, PlumbingRequest } = require("../models/LeadGeneration/ServiceRequest");
 const serviceUpload = require("../middlewares/serviceUpload")
 const multer = require('multer')
 const haversine = require('haversine-distance');
@@ -15,6 +15,7 @@ const getServiceModel = (serviceType) => {
         case 'CustomRequest': return CustomRequest;
         case 'Cleaning Services': return CleaningRequest;
         case 'Yardwork & Outdoor Services': return YardworkRequest;
+        case 'Plumbing': return PlumbingRequest;
         default: return ServiceRequest;
     }
 };
@@ -265,7 +266,7 @@ exports.getLeadCountsBySubSubCategory = async (req, res) => {
 
         // Process each subsubcategory with distance check
         const subSubCategoryCounts = {};
-        
+
         provider.selectedCategories.forEach(category => {
             const providerCoords = postalCodeCoordinates[category.postalCode];
             if (!providerCoords) return;
@@ -305,9 +306,9 @@ exports.getLeadCountsBySubSubCategory = async (req, res) => {
         res.status(200).json({ leadsCount });
     } catch (error) {
         console.error("Error in getLeadCountsBySubSubCategory:", error);
-        res.status(500).json({ 
-            error: "Error fetching lead counts", 
-            message: error.message 
+        res.status(500).json({
+            error: "Error fetching lead counts",
+            message: error.message
         });
     }
 };
@@ -315,11 +316,11 @@ exports.getLeadCountsBySubSubCategory = async (req, res) => {
 exports.getAllMatchingLeads = async (req, res) => {
     try {
         const providerId = req.params.providerId;
-        
+
         // Get provider with selected categories
         const provider = await ServiceProvider.findById(providerId)
             .select("selectedCategories");
-            
+
         if (!provider) {
             return res.status(404).json({ error: "Provider not found" });
         }
@@ -328,7 +329,7 @@ exports.getAllMatchingLeads = async (req, res) => {
         const allServiceRequests = await ServiceRequest.find({
             status: "pending",
             isPurchased: false // Add this condition to exclude purchased leads
-        }).select("serviceTypeSubSubCategory customerDetails.zipCode");
+        }).select("serviceType customerDetails.zipCode");
 
         // Get all unique postal codes involved
         const providerPostalCodes = provider.selectedCategories.map(cat => cat.postalCode);
@@ -344,29 +345,26 @@ exports.getAllMatchingLeads = async (req, res) => {
 
         // Filter service requests that match both subsubcategory and distance
         const matchingRequestIds = [];
-        
+
         provider.selectedCategories.forEach(category => {
             const providerCoords = postalCodeCoordinates[category.postalCode];
             if (!providerCoords) return;
 
-            category.subcategories.forEach(subcategory => {
-                subcategory.subSubcategories.forEach(subSubCat => {
-                    allServiceRequests.forEach(request => {
-                        if (request.serviceTypeSubSubCategory === subSubCat) {
-                            const customerCoords = postalCodeCoordinates[request.customerDetails.zipCode];
-                            if (!customerCoords) return;
+            allServiceRequests.forEach(request => {
+                if (request.serviceType === category.category) {
+                    const customerCoords = postalCodeCoordinates[request.customerDetails.zipCode];
+                    if (!customerCoords) return;
 
-                            const distance = haversine(
-                                { latitude: providerCoords.lat, longitude: providerCoords.lng },
-                                { latitude: customerCoords.lat, longitude: customerCoords.lng }
-                            ) / 1000; // Convert to kilometers
+                    // Calculate distance in miles (1 km = 0.621371 miles)
+                    const distanceInMiles = haversine(
+                        { latitude: providerCoords.lat, longitude: providerCoords.lng },
+                        { latitude: customerCoords.lat, longitude: customerCoords.lng }
+                    ) * 0.621371; // Convert to miles
 
-                            if (distance <= category.serviceRadius) {
-                                matchingRequestIds.push(request._id);
-                            }
-                        }
-                    });
-                });
+                    if (distanceInMiles <= category.serviceRadius) {
+                        matchingRequestIds.push(request._id);
+                    }
+                }
             });
         });
 
@@ -378,7 +376,7 @@ exports.getAllMatchingLeads = async (req, res) => {
             _id: { $in: uniqueMatchingIds },
             isPurchased: false // Add this condition again for the final query
         })
-        .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 });
 
         res.status(200).json({
             leads,
@@ -386,9 +384,9 @@ exports.getAllMatchingLeads = async (req, res) => {
         });
     } catch (error) {
         console.error("Error in getAllMatchingLeads:", error);
-        res.status(500).json({ 
-            error: "Error fetching leads", 
-            message: error.message 
+        res.status(500).json({
+            error: "Error fetching leads",
+            message: error.message
         });
     }
 };

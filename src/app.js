@@ -75,40 +75,96 @@ app.use("/api/payments", paymentRoutes)
 app.use('/api/conversations', require('./routes/conversationRoutes'));
 app.use("/api/admin", require("./routes/adminRoutes"))
 
-async function deleteCategoriesWithoutDescription() {
+const plumbingFormConfig = {
+   serviceType: "Plumbing",
+   questions: [
+      {
+         fieldName: "plumbingWorkType",
+         questionText: "What type of plumbing work do you need?",
+         fieldType: "checkbox",
+         options: [
+            "Faucet installation or replacement",
+            "Toilet installation or repair",
+            "Sink installation or repair",
+            "Shower or bathtub plumbing",
+            "Drain unclogging",
+            "Leak detection or pipe repair",
+            "Garbage disposal install or repair",
+            "Water line for fridge or dishwasher",
+            "Other"
+         ],
+         required: true
+      },
+      {
+         fieldName: "fixturesCount",
+         questionText: "How many fixtures or areas need plumbing work?",
+         fieldType: "radio",
+         options: [
+            "1",
+            "2",
+            "3–5",
+            "6–10",
+            "More than 10"
+         ],
+         required: true
+      },
+      {
+         fieldName: "installationType",
+         questionText: "Is this a new installation or a repair?",
+         fieldType: "radio",
+         options: [
+            "New installation",
+            "Replacement of old fixture",
+            "Repair of existing plumbing",
+            "Not sure"
+         ],
+         required: true
+      },
+      {
+         fieldName: "waterShutoffStatus",
+         questionText: "Is the water shutoff valve accessible and working?",
+         fieldType: "radio",
+         options: [
+            "Yes",
+            "No",
+            "Not sure"
+         ],
+         required: true
+      },
+      {
+         fieldName: "additionalWorkNeeded",
+         questionText: "Do you expect any additional work (caulking, wall patching, etc.)?",
+         fieldType: "radio",
+         options: [
+            "Yes",
+            "No",
+            "Not sure"
+         ],
+         required: true
+      },
+      {
+         fieldName: "additionalNotes",
+         questionText: "Any additional notes or special requests?",
+         fieldType: "text",
+         required: false,
+         placeholder: "Please provide any additional details about your plumbing needs..."
+      }
+   ]
+};
+async function insertPlumbingForm() {
    try {
-      let deletedCount = 0;
-      
-      // Find all categories that either:
-      // 1. Don't have a description field, OR
-      // 2. Have description field that's empty or just whitespace
-      const categoriesToDelete = await Category.find({
-         $or: [
-            { description: { $exists: false } }, // Field doesn't exist
-            { description: null }, // Field is null
-            { description: '' }, // Empty string
-            { description: { $regex: /^\s*$/ } } // Only whitespace
-         ]
-      });
-
-      // Delete all matching categories
-      for (const category of categoriesToDelete) {
-         await Category.deleteOne({ _id: category._id });
-         deletedCount++;
-         console.log(`Deleted category (missing/empty description): ${category.name}`);
+      const existingConfig = await FormConfiguration.findOne({ serviceType: "Plumbing" });
+      if (existingConfig) {
+         console.log("Plumbing form configuration already exists");
+         return;
       }
 
-      console.log(`
-      Deletion complete:
-      - Total deleted: ${deletedCount} categories
-      `);
-
+      const newConfig = new FormConfiguration(plumbingFormConfig);
+      await newConfig.save();
+      console.log("Plumbing form configuration saved successfully");
    } catch (error) {
-      console.error('Error deleting categories:', error);
+      console.error("Error saving plumbing form configuration:", error);
    }
 }
-
-// Execute the function
-// deleteCategoriesWithoutDescription();
-
+// insertPlumbingForm()
 module.exports = app;
