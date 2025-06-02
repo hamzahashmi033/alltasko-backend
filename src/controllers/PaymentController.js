@@ -3,6 +3,7 @@ const { ServiceRequest } = require('../models//LeadGeneration/ServiceRequest');
 const ServiceProvider = require('../models/ServiceProvider');
 const Stripe = require('stripe');
 const mongoose = require('mongoose');
+const Category = require('../models/Category');
 const frontURL = process.env.ENV === "production" ? process.env.FRONTEND_URL : process.env.DEV_FRONTEND_URL
 // Initialize payment for a lead purchase
 exports.initiatePayment = async (req, res) => {
@@ -30,7 +31,7 @@ exports.initiatePayment = async (req, res) => {
             await session.abortTransaction();
             return res.status(400).json({ error: 'Lead not available or already purchased' });
         }
-
+        const categoryPricing = await Category.findOne({ name: lead.serviceType })
         // 2. Get provider
         const provider = await ServiceProvider.findById(serviceProviderId).session(session);
         if (!provider) {

@@ -25,7 +25,7 @@ router.get(
         );
 
         // Send token as cookie or JSON response
-        const isProduction = true;
+        const isProduction = false;
         res.cookie("token", token, {
             httpOnly: true,
             secure: isProduction,
@@ -73,7 +73,7 @@ router.get(
 
 // Logout Route
 router.get("/logout", (req, res) => {
-    const isProduction = true;
+    const isProduction = false;
 
     req.logout(() => {
         res.clearCookie('token', {

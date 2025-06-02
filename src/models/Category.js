@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const subcategorySchema = new mongoose.Schema({
-    subcategory: { 
+    subcategory: {
         type: String,
         required: false // Make optional for backward compatibility
     },
@@ -18,12 +18,13 @@ const subcategorySchema = new mongoose.Schema({
         type: String,
         required: false,
         index: true
-    }
+    },
+
 }, { _id: false }); // Prevent automatic ID generation for subdocuments
 
 const categorySchema = new mongoose.Schema({
     // Original fields (keep for backward compatibility)
-    category: { 
+    category: {
         type: String,
         required: false // Change to optional
     },
@@ -31,7 +32,7 @@ const categorySchema = new mongoose.Schema({
         type: [subcategorySchema],
         required: false
     },
-    
+
     // New simplified structure
     name: {
         type: String,
@@ -48,13 +49,18 @@ const categorySchema = new mongoose.Schema({
         type: String,
         required: false
     },
-    
+    pricing: {
+        type: Number,
+        default: 1500,
+        required: true,
+        min: 0
+    },
     // Metadata for transition period
     isLegacyData: {
         type: Boolean,
         default: false
     },
-    
+
     // Timestamps
     createdAt: {
         type: Date,
@@ -68,7 +74,7 @@ const categorySchema = new mongoose.Schema({
     timestamps: true,
     toJSON: {
         virtuals: true,
-        transform: function(doc, ret) {
+        transform: function (doc, ret) {
             // Clean up the output
             delete ret.__v;
             delete ret.isLegacyData;
@@ -78,12 +84,12 @@ const categorySchema = new mongoose.Schema({
 });
 
 // Add virtual for backward compatibility
-categorySchema.virtual('legacyCategory').get(function() {
+categorySchema.virtual('legacyCategory').get(function () {
     return this.category || this.name;
 });
 
 // Add instance method to convert to new format
-categorySchema.methods.migrateToNewFormat = function() {
+categorySchema.methods.migrateToNewFormat = function () {
     if (this.isLegacyData) {
         this.name = this.name || this.category;
         this.slug = this.slug || this.name.toLowerCase().replace(/\s+/g, '-');
@@ -93,7 +99,7 @@ categorySchema.methods.migrateToNewFormat = function() {
 };
 
 // Static method to find by either old or new format
-categorySchema.statics.findByCategory = function(identifier) {
+categorySchema.statics.findByCategory = function (identifier) {
     return this.findOne({
         $or: [
             { name: identifier },
@@ -104,7 +110,7 @@ categorySchema.statics.findByCategory = function(identifier) {
 };
 
 // Middleware to maintain consistency
-categorySchema.pre('save', function(next) {
+categorySchema.pre('save', function (next) {
     if (!this.slug && this.name) {
         this.slug = this.name.toLowerCase().replace(/\s+/g, '-');
     }

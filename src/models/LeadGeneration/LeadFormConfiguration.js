@@ -10,7 +10,7 @@ const FormConfigurationSchema = new mongoose.Schema({
       required: true,
       enum: ["text", "select", "date", "checkbox", "radio", "number"] 
     },
-    options: [String],
+    options: [String],  
     required: { type: Boolean, default: false },
     placeholder: String,
     validation: {

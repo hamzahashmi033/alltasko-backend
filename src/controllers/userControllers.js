@@ -157,7 +157,7 @@ exports.loginUser = async (req, res) => {
     if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
     const token = user.generateAuthToken();
-    const isProduction = true;
+    const isProduction = false;
     res.cookie("token", token, {
       httpOnly: true,
       secure: isProduction,
