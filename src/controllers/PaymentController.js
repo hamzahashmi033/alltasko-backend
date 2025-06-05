@@ -31,7 +31,12 @@ exports.initiatePayment = async (req, res) => {
             await session.abortTransaction();
             return res.status(400).json({ error: 'Lead not available or already purchased' });
         }
-        const categoryPricing = await Category.findOne({ name: lead.serviceType })
+        const category = await Category.findOne({ name: lead.serviceType })
+        if (!category) {
+            await session.abortTransaction();
+            return res.status(404).json({ error: 'category not found' });
+        }
+        const categoryPricing = category.pricing
         // 2. Get provider
         const provider = await ServiceProvider.findById(serviceProviderId).session(session);
         if (!provider) {
@@ -64,7 +69,7 @@ exports.initiatePayment = async (req, res) => {
                         name: `Lead purchase: ${lead.serviceType}`,
                         description: `Lead ID: ${lead._id.toString()}`
                     },
-                    unit_amount: 15 * 100, // $15 in cents
+                    unit_amount: categoryPricing, 
                 },
                 quantity: 1,
             }],
@@ -92,7 +97,7 @@ exports.initiatePayment = async (req, res) => {
         const payment = new Payment({
             serviceProvider: serviceProviderId,
             serviceRequest: serviceRequestId,
-            amount: 1500,
+            amount: categoryPricing,
             currency: 'usd',
             stripeCheckoutSessionId: checkoutSession.id,
             paymentStatus: 'pending',

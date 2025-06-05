@@ -16,5 +16,9 @@ router.post("/find-hierarchy", categiryController.findHierarchyBySubSubcategory)
 router.get("/categories", categiryController.getCategories);
 router.get("/sub-cat/:category", categiryController.getSubcategoriesByCategory);
 
-
+router.post("/get-category-pricing", categiryController.getCategoryPricing)
+router.get("/get-all-categories", categiryController.getAllCategories)
+router.put("/update-category-pricing/:id", categiryController.updateCategoryPricing)
+router.post("/create-category", categiryController.createCategory)
+router.delete("/delete-category/:id", categiryController.deleteCategory)
 module.exports = router;
