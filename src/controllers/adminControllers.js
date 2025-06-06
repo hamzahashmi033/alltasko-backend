@@ -461,72 +461,29 @@ exports.updateVerificationStatus = async (req, res) => {
 exports.updateAccountStatus = async (req, res) => {
     try {
         const { id } = req.params;
-        const { accountStatus, reasonOfHold, onHold } = req.body;
+        const { accountStatus, reasonOfHold } = req.body;
 
-        // Validate input
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid provider ID",
-                code: "INVALID_PROVIDER_ID"
-            });
-        }
-
-        if (!["working", "on_hold"].includes(accountStatus)) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid account status value",
-            });
-        }
-
+        // Basic validation
         if (accountStatus === "on_hold" && !reasonOfHold) {
-            return res.status(400).json({
-                success: false,
-                message: "Reason is required when putting account on hold",
-            });
+            return res.status(400).json({ message: "Reason required for hold" });
         }
 
-        // Prepare update object
+        // Prepare update
         const update = {
             accountStatus,
-            onHold: accountStatus === "on_hold" // Auto-set onHold based on status
+            onHold: accountStatus === "on_hold",
+            resaonOfHold: accountStatus === "on_hold" ? reasonOfHold : null
         };
 
-        if (accountStatus === "on_hold") {
-            update.reasonOfHold = reasonOfHold;
-        } else {
-            update.reasonOfHold = null; // Clear hold reason if not on hold
-            update.onHold = false; // Ensure onHold is false when status is working
-        }
+       
 
-        // Update provider
-        const provider = await ServiceProvider.findByIdAndUpdate(
-            id,
-            update,
-            { new: true, runValidators: true }
-        ).select('-password -verificationCode -resetPasswordToken');
-
-        if (!provider) {
-            return res.status(404).json({
-                success: false,
-                message: "Service provider not found",
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            message: `Account status updated to ${accountStatus}`,
-            data: {
-                provider
-            }
-        });
+        // Update and respond
+        const provider = await ServiceProvider.findByIdAndUpdate(id, update, { new: true });
+        console.log("Updated provider:", provider); // Add this line
+        res.json({ message: "Status updated", provider });
 
     } catch (error) {
-        console.error('Error updating account status:', error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to update account status",
-            error: error.message,
-        });
+        console.error("Update error:", error); // Add this line
+        res.status(500).json({ message: "Error updating status", error: error.message });
     }
 };
