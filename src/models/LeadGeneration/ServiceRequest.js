@@ -9,6 +9,24 @@ const BaseServiceSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    questions: [{
+        questionText: {
+            type: String,
+            required: true
+        },
+        answer: {
+            type: mongoose.Schema.Types.Mixed,
+            required: true,
+            validate: {
+                validator: function (value) {
+                    // Answer can be string or array of strings
+                    return typeof value === 'string' ||
+                        (Array.isArray(value) && value.every(item => typeof item === 'string'));
+                },
+                message: 'Answer must be a string or array of strings'
+            }
+        }
+    }],
     purchasedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "ServiceProvider",

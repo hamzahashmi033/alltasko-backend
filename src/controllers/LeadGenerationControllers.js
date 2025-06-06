@@ -31,23 +31,63 @@ exports.getFormConfig = async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 };
+exports.createFormConfig = async (req, res) => {
+    try {
+        const { serviceType, questions } = req.body;
 
+        // Validation
+        if (!serviceType || !Array.isArray(questions) || questions.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Service type and at least one question are required.'
+            });
+        }
+
+        // Check if config for this serviceType already exists
+        const existing = await FormConfiguration.findOne({ serviceType });
+        if (existing) {
+            return res.status(409).json({
+                success: false,
+                message: 'Form configuration already exists for this service type.'
+            });
+        }
+
+        // Create and save new config
+        const newConfig = new FormConfiguration({ serviceType, questions });
+        await newConfig.save();
+
+        res.status(201).json({
+            success: true,
+            message: 'Form configuration created successfully',
+            data: newConfig
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
 exports.createRequest = async (req, res) => {
     try {
-        const { serviceType, ...requestData } = req.body;
+        const { serviceType, questions, customerId, ...otherData } = req.body;
 
-        // Handle file uploads - updated to match serviceUpload's structure
-
+        // Handle file uploads
         let photoUrls = [];
         if (req.files) {
             photoUrls = req.files.map(file => `/uploads/services/${file.filename}`);
         }
-        const ServiceModel = getServiceModel(serviceType);
-        const newRequest = new ServiceModel({
-            ...requestData,
+
+        // Validate questions structure
+        if (!Array.isArray(questions)) {
+            throw new Error('Questions must be an array');
+        }
+
+        // Create the service request
+        const newRequest = new ServiceRequest({
             serviceType,
+            questions,
+            customerId,
             photos: photoUrls,
-            status: 'pending'
+            status: 'pending',
+            ...otherData
         });
 
         await newRequest.save();
@@ -58,7 +98,7 @@ exports.createRequest = async (req, res) => {
             message: 'Service request created successfully'
         });
     } catch (err) {
-        // Enhanced error handling
+        // Clean up uploaded files if error occurs
         if (req.files) {
             req.files.forEach(file => {
                 try {
