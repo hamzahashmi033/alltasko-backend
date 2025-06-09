@@ -10,8 +10,6 @@ const PaymentSchema = new mongoose.Schema({
     serviceRequest: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "ServiceRequest",
-        required: true,
-        unique: true
     },
     stripeCheckoutSessionId: {
         type: String,
@@ -94,7 +92,9 @@ const PaymentSchema = new mongoose.Schema({
         enum: ["pending", "in_progress", "completed", "cancelled"],
         default: "pending"
     },
-
+    paymentType: {
+        type: String,
+    },
     // Timestamps
     purchasedAt: {
         type: Date,

@@ -46,4 +46,6 @@ router.post(
     ServiceProviderController.uploadProfilePicture
 );
 router.get("/logout", verifyProviderToken, ServiceProviderController.providerLogout)
+
+router.put("/update-activity-status", verifyProviderToken, ServiceProviderController.updateActivityStatus)
 module.exports = router;

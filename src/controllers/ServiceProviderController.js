@@ -78,7 +78,7 @@ exports.createServiceProviderAccount = async (req, res) => {
         const token = existingUser.generateAuthToken();
         await sendOnBoardingEmailToProvider(email, name);
 
-          const isProduction = false;
+        const isProduction = true;
         res
             .cookie("token", token, {
                 httpOnly: true,
@@ -119,7 +119,7 @@ exports.loginServiceProvider = async (req, res) => {
         if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
         const token = serviceProvider.generateAuthToken();
-        const isProduction = false;
+        const isProduction = true;
         res.cookie("token", token, {
             httpOnly: true,
             secure: isProduction,
@@ -620,7 +620,6 @@ exports.updateProviderPassword = async (req, res) => {
     }
 };
 
-
 exports.getAvailableProviders = async (req, res) => {
     try {
         const { postalCode, category } = req.query;
@@ -642,9 +641,10 @@ exports.getAvailableProviders = async (req, res) => {
             });
         }
 
-        // Find providers offering this service category
+        // Find providers offering this service category AND are active
         const providers = await ServiceProvider.find({
-            "selectedCategories.category": category
+            "selectedCategories.category": category,
+            activityStatus: true
         }).select('-password -verificationCode -__v');
 
         if (!providers.length) {
@@ -663,7 +663,6 @@ exports.getAvailableProviders = async (req, res) => {
 
             if (!serviceCategory) continue;
 
-            // Get provider's service location
             const providerCoords = await getCoordinatesFromPostalCode(
                 serviceCategory.postalCode || provider.postalCode
             );
@@ -676,7 +675,6 @@ exports.getAvailableProviders = async (req, res) => {
                 { latitude: providerCoords.lat, longitude: providerCoords.lng }
             ) / 1609.34;
 
-            // Check if within service radius
             if (distanceMiles <= (serviceCategory.serviceRadius || 10)) {
                 availableProviders.push({
                     ...provider.toObject(),
@@ -697,22 +695,9 @@ exports.getAvailableProviders = async (req, res) => {
 
         // Sort with subscription holders first, then by distance
         availableProviders.sort((a, b) => {
-            // Both are subscription holders - sort by distance
-            if (a.isSubscriptionHolder && b.isSubscriptionHolder) {
-                return a.distance - b.distance;
-            }
-            // Only a is subscription holder
-            else if (a.isSubscriptionHolder) {
-                return -1;
-            }
-            // Only b is subscription holder
-            else if (b.isSubscriptionHolder) {
-                return 1;
-            }
-            // Neither are subscription holders - sort by distance
-            else {
-                return a.distance - b.distance;
-            }
+            if (a.isSubscriptionHolder && !b.isSubscriptionHolder) return -1;
+            if (!a.isSubscriptionHolder && b.isSubscriptionHolder) return 1;
+            return a.distance - b.distance;
         });
 
         return res.status(200).json({
@@ -730,6 +715,7 @@ exports.getAvailableProviders = async (req, res) => {
         });
     }
 };
+    
 
 
 exports.forgetPassword = async (req, res) => {
@@ -943,6 +929,46 @@ exports.providerLogout = (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Logout failed'
+        });
+    }
+};
+
+exports.updateActivityStatus = async (req, res) => {
+    try {
+
+        const { activityStatus } = req.body;
+        const providerId = req.provider._id;
+
+        // 2. Update provider status
+        const updatedProvider = await ServiceProvider.findByIdAndUpdate(
+            providerId,
+            { activityStatus },
+            {
+                new: true,
+                runValidators: true
+            }
+        ).select("-password -verificationDocument -__v");
+
+        // 3. Check if provider exists
+        if (!updatedProvider) {
+            return res.status(404).json({
+                success: false,
+                message: "Professional not found"
+            });
+        }
+
+        // 4. Return success response
+        return res.status(200).json({
+            success: true,
+            message: `Activity status updated to ${activityStatus ? 'online' : 'offline'}`,
+        });
+
+    } catch (error) {
+        // Generic server error response
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };

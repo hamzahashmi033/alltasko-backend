@@ -15,7 +15,7 @@ mongoose.connect(MONGO_URI)
 
     const io = new Server(server, {
       cors: {
-        origin: frontURL,
+        origin: process.env.FRONTEND_URL,
         methods: ["GET", "POST"]
       }
     });
@@ -83,12 +83,12 @@ mongoose.connect(MONGO_URI)
           callback({ status: 'error', message: 'Failed to send message' });
         }
       });
-     
+
     });
 
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      
+
     });
   })
   .catch(err => console.error("❌ MongoDB error:", err));

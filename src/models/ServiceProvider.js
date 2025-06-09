@@ -12,6 +12,7 @@ const ServiceProviderSchema = new mongoose.Schema({
     name: { type: String, required: false },
     email: { type: String, required: true, unique: true },
     about: { type: String, default: null },
+    activityStatus: { type: Boolean, default: true },
     password: { type: String, required: false },
     contactInfo: { type: String, required: false },
     country: { type: String, required: false },

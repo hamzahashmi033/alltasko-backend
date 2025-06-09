@@ -103,6 +103,7 @@ exports.initiatePayment = async (req, res) => {
             paymentStatus: 'pending',
             stripeCustomerId: provider.stripeCustomerId,
             paymentMethod: 'card',
+            paymentType: 'lead'
 
         });
 
@@ -152,7 +153,7 @@ exports.initiateProfessionalPlusPayment = async (req, res) => {
 
     try {
         const serviceProviderId = req.provider._id;
-        const professionalPlusPrice = 19000;
+        const professionalPlusPrice = 19900;
 
         // Validate inputs
         if (!serviceProviderId) {
@@ -168,7 +169,7 @@ exports.initiateProfessionalPlusPayment = async (req, res) => {
         }
 
         // Check if already Professional Plus
-        if (provider.isProfessionalPlus) {
+        if (provider.isSubscriptionHolder) {
             await session.abortTransaction();
             return res.status(400).json({ error: 'Professional is already upgraded to Professional Plus' });
         }
