@@ -341,7 +341,7 @@ exports.handleWebhook = async (req, res) => {
                     if (!updatedProvider) {
                         throw new Error('Service Provider not found');
                     }
-                } 
+                }
                 // Handle lead purchase
                 else {
                     // Update payment record for lead purchase
@@ -389,6 +389,16 @@ exports.handleWebhook = async (req, res) => {
                     }
                 }
                 break;
+            case 'checkout.session.expired':
+                const expiredSession = event.data.object;
+
+                // Delete the payment record for expired sessions
+                await Payment.findOneAndDelete(
+                    { stripeCheckoutSessionId: expiredSession.id },
+                    { session }
+                );
+
+                break;
         }
 
         await session.commitTransaction();
@@ -396,7 +406,7 @@ exports.handleWebhook = async (req, res) => {
     } catch (err) {
         await session.abortTransaction();
         console.error('Webhook processing error:', err);
-        
+
         res.status(500).json({
             error: 'Webhook processing failed',
             details: process.env.NODE_ENV === 'development' ? err.message : undefined

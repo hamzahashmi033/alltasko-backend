@@ -10,6 +10,7 @@ const PaymentSchema = new mongoose.Schema({
     serviceRequest: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "ServiceRequest",
+        unique: false
     },
     stripeCheckoutSessionId: {
         type: String,
