@@ -84,7 +84,7 @@ exports.verifyCodeAndRegister = async (req, res) => {
       loginMethod: user.loginMethod, // fallback to 'email'
     };
     const token = user.generateAuthToken()
-   const isProduction = true;
+   const isProduction = false;
     res.cookie("token", token, {
       httpOnly: true,
       secure: isProduction,

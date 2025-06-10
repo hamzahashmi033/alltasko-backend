@@ -94,22 +94,37 @@ exports.initiatePayment = async (req, res) => {
         });
 
         // 5. Create payment record
-        const payment = new Payment({
-            serviceProvider: serviceProviderId,
+
+        let payment = await Payment.findOne({
             serviceRequest: serviceRequestId,
-            amount: categoryPricing,
-            currency: 'usd',
-            stripeCheckoutSessionId: checkoutSession.id,
-            paymentStatus: 'pending',
-            stripeCustomerId: provider.stripeCustomerId,
-            paymentMethod: 'card',
-            paymentType: 'lead'
+            serviceProvider: serviceProviderId,
+            paymentType: 'lead',
+            paymentStatus: 'pending'
+        }).session(session);
 
-        });
+        if (payment) {
+            payment.amount = categoryPricing;
+            payment.currency = 'usd';
+            payment.stripeCheckoutSessionId = checkoutSession.id;
+            payment.stripeCustomerId = provider.stripeCustomerId;
+            payment.paymentMethod = 'card';
+            await payment.save({ session });
+        } else {
+            payment = new Payment({
+                serviceProvider: serviceProviderId,
+                serviceRequest: serviceRequestId,
+                amount: categoryPricing,
+                currency: 'usd',
+                stripeCheckoutSessionId: checkoutSession.id,
+                paymentStatus: 'pending',
+                stripeCustomerId: provider.stripeCustomerId,
+                paymentMethod: 'card',
+                paymentType: 'lead'
+            });
+            await payment.save({ session });
+        }
 
-        await payment.save({ session });
         await session.commitTransaction();
-
         res.status(201).json({
             success: true,
             sessionId: checkoutSession.id,
@@ -220,19 +235,37 @@ exports.initiateProfessionalPlusPayment = async (req, res) => {
             expires_at: Math.floor(Date.now() / 1000) + (30 * 60), // 30 minutes from now
         });
 
-        // 4. Create payment record
-        const payment = new Payment({
-            serviceProvider: serviceProviderId,
-            amount: professionalPlusPrice,
-            currency: 'usd',
-            stripeCheckoutSessionId: checkoutSession.id,
-            paymentStatus: 'pending',
-            stripeCustomerId: provider.stripeCustomerId,
-            paymentMethod: 'card',
-            paymentType: 'professional_plus'
-        });
 
-        await payment.save({ session });
+        // 4. Create or update payment record
+        let payment = await Payment.findOne({
+            serviceProvider: serviceProviderId,
+            paymentType: 'professional_plus',
+            paymentStatus: 'pending'
+        }).session(session);
+
+        if (payment) {
+            payment.amount = professionalPlusPrice;
+            payment.currency = 'usd';
+            payment.stripeCheckoutSessionId = checkoutSession.id;
+            payment.stripeCustomerId = provider.stripeCustomerId;
+            payment.paymentMethod = 'card';
+            payment.paymentStatus = 'pending';
+            await payment.save({ session });
+        } else {
+            payment = new Payment({
+                serviceProvider: serviceProviderId,
+                amount: professionalPlusPrice,
+                currency: 'usd',
+                stripeCheckoutSessionId: checkoutSession.id,
+                paymentStatus: 'pending',
+                stripeCustomerId: provider.stripeCustomerId,
+                paymentMethod: 'card',
+                paymentType: 'professional_plus',
+                serviceRequest: undefined
+            });
+            await payment.save({ session });
+        }
+
         await session.commitTransaction();
 
         res.status(201).json({
@@ -389,16 +422,7 @@ exports.handleWebhook = async (req, res) => {
                     }
                 }
                 break;
-            case 'checkout.session.expired':
-                const expiredSession = event.data.object;
 
-                // Delete the payment record for expired sessions
-                await Payment.findOneAndDelete(
-                    { stripeCheckoutSessionId: expiredSession.id },
-                    { session }
-                );
-
-                break;
         }
 
         await session.commitTransaction();
